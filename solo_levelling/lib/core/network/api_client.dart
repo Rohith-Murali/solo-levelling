@@ -15,14 +15,52 @@ class ApiClient {
   final http.Client _client;
   final bool _ownsClient;
 
-  Future<Map<String, dynamic>> getJson(String path) async {
+  Future<Map<String, dynamic>> getJson(
+    String path, {
+    String? bearerToken,
+  }) async {
+    return _request('GET', path, bearerToken: bearerToken);
+  }
+
+  Future<Map<String, dynamic>> postJson(
+    String path, {
+    required Map<String, Object?> body,
+    String? bearerToken,
+  }) async {
+    return _request('POST', path, body: body, bearerToken: bearerToken);
+  }
+
+  Future<Map<String, dynamic>> _request(
+    String method,
+    String path, {
+    Map<String, Object?>? body,
+    String? bearerToken,
+  }) async {
+    if (method != 'GET' && method != 'POST') {
+      throw ArgumentError.value(
+        method,
+        'method',
+        'Only GET and POST are supported.',
+      );
+    }
+
     final normalizedPath = path.startsWith('/') ? path.substring(1) : path;
+    final headers = <String, String>{'Accept': 'application/json'};
+    if (body != null) {
+      headers['Content-Type'] = 'application/json';
+    }
+    if (bearerToken != null) {
+      headers['Authorization'] = 'Bearer $bearerToken';
+    }
     late final http.Response response;
 
     try {
-      response = await _client
-          .get(_baseUri.resolve(normalizedPath))
-          .timeout(const Duration(seconds: 10));
+      final uri = _baseUri.resolve(normalizedPath);
+      response =
+          await (method == 'GET'
+                  ? _client.get(uri, headers: headers)
+                  : _client.post(uri, headers: headers, body: jsonEncode(body)))
+              .timeout(const Duration(seconds: 10));
     } on TimeoutException {
       throw const ApiException('The request timed out.');
     } on http.ClientException {
@@ -51,10 +89,15 @@ class ApiClient {
       final errorMessage = error is Map<String, dynamic>
           ? error['message']
           : null;
+      final errorCode = error is Map<String, dynamic> ? error['code'] : null;
       final message = errorMessage is String
           ? errorMessage
           : 'The request failed with status ${response.statusCode}.';
-      throw ApiException(message, statusCode: response.statusCode);
+      throw ApiException(
+        message,
+        statusCode: response.statusCode,
+        code: errorCode is String ? errorCode : null,
+      );
     }
 
     return decoded;
@@ -68,10 +111,11 @@ class ApiClient {
 }
 
 class ApiException implements Exception {
-  const ApiException(this.message, {this.statusCode});
+  const ApiException(this.message, {this.statusCode, this.code});
 
   final String message;
   final int? statusCode;
+  final String? code;
 
   @override
   String toString() => 'ApiException: $message';

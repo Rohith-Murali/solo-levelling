@@ -7,7 +7,7 @@ A personal-growth RPG with a Flutter client and a Node.js/TypeScript REST API ba
 - `solo_levelling/` — Flutter application and reusable dark HUD theme.
 - `backend/` — Express API, MongoDB connection, health checks, and backend tests.
 
-The initial foundation does not include user accounts or RPG features. Authentication and domain models are deferred until their product requirements are defined.
+The app includes email/password authentication and a placeholder welcome screen. RPG domain features remain out of scope.
 
 ## Prerequisites
 
@@ -23,7 +23,11 @@ The initial foundation does not include user accounts or RPG features. Authentic
    Copy-Item backend\.env.example backend\.env
    ```
 
-   Update `MONGODB_URI` in `backend\.env` for your MongoDB instance.
+   Set `MONGODB_URI` and a unique `JWT_SECRET` of at least 32 bytes in `backend\.env`. Generate a local key with:
+
+   ```powershell
+   node -e "console.log(require('node:crypto').randomBytes(48).toString('base64url'))"
+   ```
 
 2. Start the API:
 

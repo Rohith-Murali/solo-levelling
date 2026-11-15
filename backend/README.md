@@ -1,6 +1,6 @@
 # Solo Levelling API
 
-Express 5 REST API using TypeScript and Mongoose. MongoDB-backed readiness is reported separately from API liveness. Authentication and product models are intentionally deferred.
+Express 5 REST API using TypeScript and Mongoose. MongoDB-backed readiness is reported separately from API liveness.
 
 ## Setup
 
@@ -12,7 +12,21 @@ npm install
 npm run dev
 ```
 
-Set `MONGODB_URI` in `.env` to the database connection string. `CORS_ORIGINS` accepts a comma-separated allowlist; it defaults to no cross-origin browser access. Do not commit `.env`.
+Set `MONGODB_URI` and a unique `JWT_SECRET` of at least 32 bytes in `.env`. `CORS_ORIGINS` accepts a comma-separated allowlist; in development, HTTP origins on `localhost`, `127.0.0.1`, and `[::1]` are also allowed so local web clients can use dynamic ports. Do not commit `.env`.
+
+For production, set `NODE_ENV=production`, provide at least one HTTPS `CORS_ORIGINS` entry, and run the Flutter client with an HTTPS `API_BASE_URL`. The default rate limiter uses process memory and is suitable for a single instance; use a shared rate-limit store before running multiple API instances behind a load balancer.
+
+Generate a local signing key with `node -e "console.log(require('node:crypto').randomBytes(48).toString('base64url'))"` and place the output in `.env`.
+
+## Authentication
+
+- `POST /api/auth/register` — create an account with an email and password.
+- `POST /api/auth/login` — authenticate and issue an access token and refresh token.
+- `POST /api/auth/refresh` — rotate a refresh token and issue a new access token.
+- `POST /api/auth/logout` — revoke a refresh token.
+- `GET /api/auth/me` — return the signed-in user; requires a Bearer access token.
+
+Passwords are hashed with bcrypt. Access tokens expire after 15 minutes; refresh tokens rotate and expire after 30 days. Refresh tokens are stored hashed in MongoDB. Email verification and password reset are not configured.
 
 ## Commands
 
