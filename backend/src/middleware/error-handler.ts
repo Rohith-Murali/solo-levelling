@@ -38,5 +38,6 @@ export const errorHandler: ErrorRequestHandler = (error, request, response, next
     );
   }
 
-  response.status(statusCode).json({ error: { code, message } });
+  const errorResponse = { error: { code, message }, ...(isExpected && error.details ? { details: error.details } : {}) };
+  response.status(statusCode).json(errorResponse);
 };

@@ -10,7 +10,7 @@ async function startServer(): Promise<void> {
   logger.level = config.LOG_LEVEL;
   await connectToDatabase(config.MONGODB_URI);
 
-  const server = createServer(createApp(config.corsOrigins));
+  const server = createServer(createApp(config));
   server.on("error", (error: Error) => {
     logger.error({ errorType: error.name }, "HTTP server error");
     process.exitCode = 1;
@@ -49,7 +49,11 @@ async function startServer(): Promise<void> {
       server.close((error) => (error ? reject(error) : resolve()));
     });
 
-    void Promise.all([closeServer, disconnectFromDatabase()])
+    const timeout = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error("Shutdown timed out.")), 10_000).unref();
+    });
+
+    void Promise.race([Promise.all([closeServer, disconnectFromDatabase()]), timeout])
       .then(() => logger.info("Shutdown complete"))
       .catch((error: unknown) => {
         logger.error({ errorType: error instanceof Error ? error.name : "UnknownError" }, "Shutdown failed");
