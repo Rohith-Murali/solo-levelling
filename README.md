@@ -7,7 +7,7 @@ A personal-growth RPG with a Flutter client and a Node.js/TypeScript REST API ba
 - `solo_levelling/` — Flutter application and reusable dark HUD theme.
 - `backend/` — Express API, MongoDB connection, health checks, and backend tests.
 
-The app includes email/password authentication and a placeholder welcome screen. RPG domain features remain out of scope.
+The app includes email/password authentication, first-login character creation, and a placeholder welcome screen for accounts that already have a character.
 
 ## Prerequisites
 
@@ -53,3 +53,5 @@ The app includes email/password authentication and a placeholder welcome screen.
 - Flutter: `cd solo_levelling; flutter analyze; flutter test`
 
 The API exposes `/api/health/live` for liveness and `/api/health/ready` for MongoDB readiness.
+
+Authenticated character endpoints expose the available avatar and starting-skill catalog at `GET /api/characters/options` and create the account's one character at `POST /api/characters`. The API assigns all initial progression values. A successful creation currently returns to the placeholder welcome screen; dashboard functionality is not yet implemented.

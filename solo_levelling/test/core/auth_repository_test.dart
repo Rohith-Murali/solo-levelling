@@ -14,7 +14,11 @@ void main() {
       http.Response(
         jsonEncode({
           'data': {
-            'user': {'id': 'user-id', 'email': 'hunter@example.com'},
+            'user': {
+              'id': 'user-id',
+              'email': 'hunter@example.com',
+              'hasCharacter': false,
+            },
             'accessToken': 'new-access-token',
             'refreshToken': 'new-refresh-token',
             'tokenType': 'Bearer',
@@ -26,7 +30,11 @@ void main() {
       http.Response(
         jsonEncode({
           'data': {
-            'user': {'id': 'user-id', 'email': 'hunter@example.com'},
+            'user': {
+              'id': 'user-id',
+              'email': 'hunter@example.com',
+              'hasCharacter': false,
+            },
           },
         }),
         200,

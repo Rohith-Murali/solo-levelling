@@ -85,6 +85,18 @@ class AuthController extends ChangeNotifier {
     }
   }
 
+  void markCharacterCreated() {
+    final user = _state.user;
+    if (_state.status == AuthStatus.signedIn && user != null) {
+      _setState(
+        AuthState(
+          status: AuthStatus.signedIn,
+          user: user.copyWith(hasCharacter: true),
+        ),
+      );
+    }
+  }
+
   Future<void> _runAuthAction(Future<AuthUser> Function() action) async {
     _setState(
       AuthState(status: _state.status, user: _state.user, isBusy: true),

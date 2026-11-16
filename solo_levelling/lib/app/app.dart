@@ -4,12 +4,19 @@ import '../features/auth/application/auth_controller.dart';
 import '../features/auth/presentation/login_screen.dart';
 import '../features/auth/presentation/register_screen.dart';
 import '../features/auth/presentation/welcome_screen.dart';
+import '../features/character/domain/character_repository.dart';
+import '../features/character/presentation/character_creation_screen.dart';
 import 'theme/app_theme.dart';
 
 class SoloLevelingApp extends StatefulWidget {
-  const SoloLevelingApp({required this.authController, super.key});
+  const SoloLevelingApp({
+    required this.authController,
+    required this.characterRepository,
+    super.key,
+  });
 
   final AuthController authController;
+  final CharacterRepository characterRepository;
 
   @override
   State<SoloLevelingApp> createState() => _SoloLevelingAppState();
@@ -41,6 +48,13 @@ class _SoloLevelingAppState extends State<SoloLevelingApp> {
 
           final user = state.user;
           if (state.status == AuthStatus.signedIn && user != null) {
+            if (!user.hasCharacter) {
+              return CharacterCreationScreen(
+                repository: widget.characterRepository,
+                accessToken: widget.authController.accessToken,
+                onCreated: widget.authController.markCharacterCreated,
+              );
+            }
             return WelcomeScreen(user: user, controller: widget.authController);
           }
 
