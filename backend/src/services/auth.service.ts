@@ -16,7 +16,7 @@ function hashRefreshToken(token: string): string {
 }
 
 function getPublicUser(user: HydratedDocument<UserRecord>): PublicUser {
-  return { id: user.id, email: user.email };
+  return { id: user.id, email: user.email, hasCharacter: Boolean(user.character) };
 }
 
 function isDuplicateKeyError(error: unknown): boolean {
