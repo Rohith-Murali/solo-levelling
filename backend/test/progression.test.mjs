@@ -1,0 +1,268 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { ProgressionEngine, defaultProgressionConfig } from "../dist/core/progression/index.js";
+import { createQuestController } from "../dist/controllers/quest.controller.js";
+import { User } from "../dist/models/user.model.js";
+import { characterVersionFilter } from "../dist/services/character-version-filter.js";
+import { createQuestService } from "../dist/services/quest.service.js";
+
+const skill = { id: "focus", name: "Focus", description: "Train attention." };
+
+test("progresses character XP with carryover and independent skill XP", () => {
+  const engine = new ProgressionEngine();
+  const initial = engine.createInitialState("character-1", skill);
+  const result = engine.processQuestCompletion(initial, { questId: "quest-1", primarySkillId: "focus" });
+
+  assert.equal(result.characterXpGained, 100);
+  assert.equal(result.state.level, 2);
+  assert.equal(result.state.xp, 0);
+  assert.equal(result.state.totalXp, 100);
+  assert.equal(result.state.skills.focus.xp, 50);
+  assert.equal(result.state.skills.focus.totalXp, 50);
+  assert.equal(result.state.rank, "E");
+  assert.equal(result.state.title, "Shadow Initiate");
+  assert.ok(result.events.some((event) => event.type === "SKILL_XP_GAINED"));
+});
+
+test("supports multiple levels, rank/title promotion, and calculated unlock tokens", () => {
+  const engine = new ProgressionEngine();
+  const initial = engine.createInitialState("character-1", skill);
+  const result = engine.awardXp({ ...initial, level: 4, xp: 0, totalXp: 450, rank: "E", title: "Shadow Initiate" }, 700, "quest-1");
+
+  assert.equal(result.state.level, 6);
+  assert.equal(result.state.xp, 150);
+  assert.equal(result.state.rank, "D");
+  assert.equal(result.state.title, "Shadow Walker");
+  assert.equal(result.newlyEarnedUnlockTokens, 1);
+  assert.deepEqual(result.characterLevelUps, [5, 6]);
+  assert.deepEqual(result.newlyUnlockedTitles, ["Shadow Walker"]);
+});
+
+test("duplicate completion is idempotent", () => {
+  const engine = new ProgressionEngine();
+  const initial = engine.createInitialState("character-1", skill);
+  const first = engine.processQuestCompletion(initial, { questId: "quest-1", primarySkillId: "focus" });
+  const duplicate = engine.processQuestCompletion(first.state, { questId: "quest-1", primarySkillId: "focus" });
+
+  assert.equal(duplicate.alreadyCompleted, true);
+  assert.equal(duplicate.characterXpGained, 0);
+  assert.equal(duplicate.state.totalXp, first.state.totalXp);
+});
+
+test("configuration changes formulas and title/rank definitions without engine changes", () => {
+  const config = {
+    ...defaultProgressionConfig,
+    skillXpMultiplier: 0.6,
+    ranks: [...defaultProgressionConfig.ranks, { name: "SS", minimumLevel: 50 }],
+    titles: [...defaultProgressionConfig.titles, { name: "Beyond Shadow", rank: "SS" }],
+  };
+  const engine = new ProgressionEngine(config);
+  const state = engine.createInitialState("character-1", skill);
+  const result = engine.processQuestCompletion(state, { questId: "quest-1", primarySkillId: "focus" });
+
+  assert.equal(result.skillXpGained, 60);
+  assert.equal(result.state.skills.focus.xp, 60);
+});
+
+test("rejects incomplete quests and awards no skill XP for an unacquired skill", () => {
+  const engine = new ProgressionEngine();
+  const initial = engine.createInitialState("character-1", skill);
+  assert.throws(() => engine.processQuestCompletion(initial, { questId: "quest-1", requiredObjectiveCount: 1, completedObjectiveCount: 0 }));
+  const result = engine.processQuestCompletion(initial, { questId: "quest-2", primarySkillId: "missing" });
+  assert.equal(result.characterXpGained, 100);
+  assert.equal(result.skillXpGained, 0);
+});
+
+test("repeated template activation is an idempotent success", async () => {
+  const originalFindById = User.findById;
+
+  try {
+    User.findById = () => ({
+      select: async () => ({
+        character: {
+          level: 1,
+          quests: [{ sourceTemplateId: "body" }],
+        },
+      }),
+    });
+
+    assert.deepEqual(
+      await createQuestService().activateTemplate("user-1", "body"),
+      { alreadyActive: true },
+    );
+  } finally {
+    User.findById = originalFindById;
+  }
+});
+
+test("template activation recovers when another request activates it concurrently", async () => {
+  const originalFindById = User.findById;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  let latestCharacter = { level: 1, version: 0, quests: [] };
+
+  try {
+    User.findById = () => ({
+      select: async () => ({ character: latestCharacter }),
+    });
+    User.findOneAndUpdate = async (_filter, update) => {
+      latestCharacter = update.$set.character;
+      return null;
+    };
+
+    assert.deepEqual(
+      await createQuestService().activateTemplate("user-1", "body"),
+      { alreadyActive: true },
+    );
+  } finally {
+    User.findById = originalFindById;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+});
+
+test("template activation remains a conflict when a concurrent update did not activate it", async () => {
+  const originalFindById = User.findById;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  let reads = 0;
+
+  try {
+    User.findById = () => ({
+      select: async () => ({
+        character: {
+          level: 1,
+          version: reads++ === 0 ? 0 : 1,
+          quests: [],
+        },
+      }),
+    });
+    User.findOneAndUpdate = async () => null;
+
+    await assert.rejects(
+      createQuestService().activateTemplate("user-1", "body"),
+      (error) => error.code === "CONCURRENT_UPDATE",
+    );
+  } finally {
+    User.findById = originalFindById;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+});
+
+test("template activation returns success status for an idempotent retry", async () => {
+  const controller = createQuestController({
+    activateTemplate: async () => ({ alreadyActive: true }),
+  });
+  const response = {
+    statusCode: null,
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(body) {
+      this.body = body;
+      return this;
+    },
+  };
+
+  await controller.activateTemplate(
+    {
+      authIdentity: { userId: "user-1" },
+      params: { templateId: "body" },
+    },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.body.data, { alreadyActive: true });
+});
+
+test("legacy version zero updates also match records without a stored version", () => {
+  assert.deepEqual(characterVersionFilter(0), {
+    $or: [
+      { "character.version": 0 },
+      { "character.version": { $exists: false } },
+    ],
+  });
+  assert.deepEqual(characterVersionFilter(undefined), {
+    $or: [
+      { "character.version": 0 },
+      { "character.version": { $exists: false } },
+    ],
+  });
+});
+
+test("template quests award Character XP and Skill XP only to acquired skills", async () => {
+  const originalFindById = User.findById;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const now = new Date();
+  let character = {
+    id: "character-1",
+    name: "Hunter",
+    avatarId: "avatar-01",
+    level: 1,
+    xp: 0,
+    totalXp: 0,
+    rank: "E",
+    title: "Shadow Initiate",
+    titleHistory: ["Shadow Initiate"],
+    skillUnlockTokens: 0,
+    version: 0,
+    startingSkill: { id: "focus", name: "Focus", level: 1, xp: 0 },
+    skills: [
+      {
+        id: "focus",
+        name: "Focus",
+        description: "Train attention.",
+        category: "STARTING",
+        level: 1,
+        xp: 0,
+        totalXp: 0,
+        acquiredAt: now,
+        acquisitionSource: "CHARACTER_CREATION",
+        status: "ACTIVE",
+      },
+    ],
+    goals: [],
+    milestones: [],
+    quests: [],
+    progressionEvents: [],
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  try {
+    User.findById = () => ({
+      select: async () => ({ character }),
+    });
+    User.findOneAndUpdate = async (_filter, update) => {
+      character = update.$set.character;
+      return { character };
+    };
+
+    const service = createQuestService();
+    const bodyActivation = await service.activateTemplate("user-1", "body");
+    assert.equal(bodyActivation.alreadyActive, false);
+    assert.equal(bodyActivation.quests.length, 9);
+    assert.equal(character.skills.length, 1);
+
+    const bodyQuest = character.quests.find(
+      (quest) => quest.sourceTemplateId === "body",
+    );
+    const bodyCompletion = await service.complete("user-1", bodyQuest.id);
+    assert.equal(bodyCompletion.progression.characterXpGained, 100);
+    assert.equal(bodyCompletion.progression.skillXpGained, 0);
+    assert.equal(character.totalXp, 100);
+
+    await service.activateTemplate("user-1", "mind");
+    const mindQuest = character.quests.find(
+      (quest) => quest.sourceTemplateId === "mind",
+    );
+    const mindCompletion = await service.complete("user-1", mindQuest.id);
+    assert.equal(mindCompletion.progression.characterXpGained, 150);
+    assert.equal(mindCompletion.progression.skillXpGained, 75);
+    assert.equal(character.skills.find((item) => item.id === "focus").totalXp, 75);
+    assert.equal(character.totalXp, 250);
+  } finally {
+    User.findById = originalFindById;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+});
+

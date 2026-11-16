@@ -74,10 +74,79 @@ test("dashboard returns persisted character data and honest empty-history state"
     assert.deepEqual(response.body.data.activeQuests, []);
     assert.deepEqual(response.body.data.recentActivity, []);
     assert.deepEqual(response.body.data.progressionOverview.xpTrend, []);
-    assert.equal(
-      response.body.data.progressionOverview.characterXpEarned,
-      null,
-    );
+    assert.equal(response.body.data.progressionOverview.characterXpEarned, 0);
+    assert.equal(response.body.data.progressionOverview.questsCompleted, 0);
+  } finally {
+    User.findById = originalFindById;
+  }
+});
+
+test("dashboard history and skill progress reflect persisted progression events", async () => {
+  const originalFindById = User.findById;
+  const occurredAt = new Date();
+  const character = {
+    ...createCharacter(),
+    skills: [
+      {
+        id: "focus",
+        name: "Focus",
+        level: 2,
+        xp: 25,
+        totalXp: 125,
+        description: "Train attention.",
+        category: "COGNITIVE",
+        acquiredAt: occurredAt,
+        acquisitionSource: "CHARACTER_CREATION",
+        status: "ACTIVE",
+      },
+    ],
+    quests: [
+      {
+        id: "quest-1",
+        title: "Complete a focus session",
+        completed: true,
+        objectives: [],
+      },
+    ],
+    progressionEvents: [
+      {
+        id: "event-1",
+        type: "QUEST_COMPLETED",
+        relatedEntityId: "quest-1",
+        occurredAt,
+      },
+      {
+        id: "event-2",
+        type: "CHARACTER_XP_GAINED",
+        relatedEntityId: "quest-1",
+        xpChange: 100,
+        occurredAt,
+      },
+      {
+        id: "event-3",
+        type: "SKILL_XP_GAINED",
+        relatedEntityId: "focus",
+        xpChange: 50,
+        occurredAt,
+      },
+    ],
+  };
+
+  try {
+    User.findById = () => ({
+      select: async () => ({ character }),
+    });
+
+    const data = await createDashboardService().getForUser(userId);
+
+    assert.equal(data.progressionOverview.characterXpEarned, 100);
+    assert.equal(data.progressionOverview.questsCompleted, 1);
+    assert.deepEqual(data.progressionOverview.xpTrend, [
+      { date: occurredAt.toISOString().slice(0, 10), xp: 100 },
+    ]);
+    assert.equal(data.recentActivity.length, 3);
+    assert.equal(data.skills[0].currentLevelXp, 25);
+    assert.equal(data.skills[0].xpToNextLevel, 150);
   } finally {
     User.findById = originalFindById;
   }
