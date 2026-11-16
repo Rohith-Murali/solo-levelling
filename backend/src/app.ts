@@ -6,6 +6,7 @@ import { pinoHttp } from "pino-http";
 import { logger } from "./config/logger.js";
 import { createAuthRouter } from "./routes/auth.routes.js";
 import { createCharacterRouter } from "./routes/character.routes.js";
+import { createDashboardRouter } from "./routes/dashboard.routes.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { notFoundHandler } from "./middleware/not-found.js";
 import { healthRouter } from "./routes/health.routes.js";
@@ -80,6 +81,7 @@ export function createApp(config: AppConfig) {
   app.use("/api/health", healthRouter);
   app.use("/api/auth", createAuthRouter(config.JWT_SECRET));
   app.use("/api/characters", createCharacterRouter(config.JWT_SECRET));
+  app.use("/api/dashboard", createDashboardRouter(config.JWT_SECRET));
   app.use(notFoundHandler);
   app.use(errorHandler);
 

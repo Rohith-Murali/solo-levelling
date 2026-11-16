@@ -27,8 +27,10 @@ Generate a local signing key with `node -e "console.log(require('node:crypto').r
 - `GET /api/auth/me` — return the signed-in user; requires a Bearer access token.
 - `GET /api/characters/options` — return the authenticated character-creation catalog and server-assigned initial progression.
 - `POST /api/characters` — create the signed-in user's one character and its starting skill.
+- `GET /api/dashboard` — return the authenticated player's character, skill, statistics, and available progression data.
 
 The character and starting skill are stored together on the user record so creation is atomic. The client submits only the name, avatar ID, and starting skill ID; the API assigns initial progression and returns `hasCharacter` in authenticated user responses.
+Quest, goal, reward-history, and activity models are not implemented yet, so the dashboard returns empty lists and an unavailable progression-history state for those sections.
 
 Passwords are hashed with bcrypt. Access tokens expire after 15 minutes; refresh tokens rotate and expire after 30 days. Refresh tokens are stored hashed in MongoDB. Email verification and password reset are not configured.
 
