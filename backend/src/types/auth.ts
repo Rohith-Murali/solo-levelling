@@ -1,6 +1,7 @@
 export type PublicUser = {
   id: string;
   email: string;
+  hasCharacter: boolean;
 };
 
 export type AuthIdentity = {
