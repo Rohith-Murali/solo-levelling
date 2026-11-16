@@ -6,6 +6,7 @@ import '../features/auth/presentation/register_screen.dart';
 import '../features/character/domain/character_repository.dart';
 import '../features/character/presentation/character_creation_screen.dart';
 import '../features/dashboard/domain/dashboard_repository.dart';
+import '../features/progression/domain/progression_repository.dart';
 import '../shared/widgets/navigation/main_shell.dart';
 import 'theme/app_theme.dart';
 
@@ -14,12 +15,14 @@ class SoloLevelingApp extends StatefulWidget {
     required this.authController,
     required this.characterRepository,
     required this.dashboardRepository,
+    this.progressionRepository,
     super.key,
   });
 
   final AuthController authController;
   final CharacterRepository characterRepository;
   final DashboardRepository dashboardRepository;
+  final ProgressionRepository? progressionRepository;
 
   @override
   State<SoloLevelingApp> createState() => _SoloLevelingAppState();
@@ -63,6 +66,7 @@ class _SoloLevelingAppState extends State<SoloLevelingApp> {
               accessToken: widget.authController.accessToken,
               onLogout: widget.authController.logout,
               onCharacterRequired: widget.authController.markCharacterMissing,
+              progressionRepository: widget.progressionRepository,
             );
           }
 

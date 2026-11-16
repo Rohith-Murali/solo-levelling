@@ -6,6 +6,8 @@ import '../../../core/network/api_client.dart';
 import '../../auth/presentation/widgets/auth_widgets.dart';
 import '../domain/dashboard_data.dart';
 import '../domain/dashboard_repository.dart';
+import '../../progression/domain/progression_data.dart';
+import '../../progression/domain/progression_repository.dart';
 
 part 'dashboard_header_widgets.dart';
 part 'dashboard_quest_skill_widgets.dart';
@@ -17,6 +19,7 @@ class DashboardScreen extends StatefulWidget {
     required this.accessToken,
     required this.onCharacterRequired,
     this.onCharacterLoaded,
+    this.progressionRepository,
     super.key,
   });
 
@@ -24,6 +27,7 @@ class DashboardScreen extends StatefulWidget {
   final String? accessToken;
   final VoidCallback onCharacterRequired;
   final ValueChanged<DashboardCharacter>? onCharacterLoaded;
+  final ProgressionRepository? progressionRepository;
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -34,6 +38,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String? _errorMessage;
   bool _isLoading = true;
   bool _isRefreshing = false;
+  List<ProgressionQuest>? _quests;
+  List<QuestTemplate>? _templates;
+  final Set<String> _activatingTemplateIds = <String>{};
 
   @override
   void initState() {
@@ -60,10 +67,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
         throw const ApiException('Your session expired. Please sign in again.');
       }
       final data = await widget.repository.load(token);
+      final progressionRepository = widget.progressionRepository;
+      final quests = progressionRepository == null
+          ? null
+          : await progressionRepository.loadQuests(token);
+      final templates = progressionRepository == null
+          ? null
+          : await progressionRepository.loadTemplates(token);
       if (!mounted) return;
       setState(() {
         _data = data;
         _errorMessage = null;
+        _quests = quests;
+        _templates = templates;
       });
       widget.onCharacterLoaded?.call(data.character);
     } on ApiException catch (error) {
@@ -134,11 +150,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: _CharacterStatusPanel(
                     character: data.character,
                     onRankTap: () => _showRankDetails(context, data.character),
-                    onTokensTap: () => _showTokenDetails(context),
+                    onTokensTap: () =>
+                        _showTokenDetails(context, data.character),
                   ),
                 ),
                 const SizedBox(height: 22),
-                _ActiveQuestsSection(quests: data.activeQuests),
+                _ActiveQuestsSection(
+                  quests: _quests ?? const [],
+                  templates: _templates ?? const [],
+                  onObjectiveComplete: _completeObjective,
+                  onQuestComplete: _completeQuest,
+                  onActivateTemplate: _activateTemplate,
+                  activatingTemplateIds: _activatingTemplateIds,
+                ),
                 const SizedBox(height: 22),
                 _AcquiredSkillsSection(skills: data.skills),
                 const SizedBox(height: 22),
@@ -176,16 +200,59 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  void _showTokenDetails(BuildContext context) {
+  void _showTokenDetails(BuildContext context, DashboardCharacter character) {
+    final repository = widget.progressionRepository;
+    final token = widget.accessToken;
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.surface,
         title: const Text('Skill Unlock Tokens'),
-        content: const Text(
-          'Tokens are system rewards used to unlock additional skills. '
-          'Skill acquisition will be available here when that feature is added.',
-        ),
+        content: repository == null || token == null
+            ? const Text(
+                'Tokens are system rewards used to unlock additional skills.',
+              )
+            : SizedBox(
+                width: 360,
+                child: FutureBuilder<List<LibrarySkill>>(
+                  future: repository.loadSkillLibrary(token),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState != ConnectionState.done) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (snapshot.hasError)
+                      return const Text(
+                        'The skill library could not be loaded.',
+                      );
+                    final skills = snapshot.data ?? const <LibrarySkill>[];
+                    if (character.skillUnlockTokens == 0)
+                      return const Text(
+                        'No skill unlock tokens are available yet.',
+                      );
+                    return ListView(
+                      shrinkWrap: true,
+                      children: [
+                        Text(
+                          '${character.skillUnlockTokens} token${character.skillUnlockTokens == 1 ? '' : 's'} available.',
+                        ),
+                        const SizedBox(height: 10),
+                        for (final skill in skills)
+                          ListTile(
+                            title: Text(skill.name),
+                            subtitle: Text(skill.description),
+                            trailing: TextButton(
+                              onPressed: () async {
+                                Navigator.pop(context);
+                                await _acquireSkill(skill.id);
+                              },
+                              child: const Text('Unlock'),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+              ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -194,5 +261,68 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _acquireSkill(String skillId) async {
+    await _runProgressionAction(
+      (repository, token) => repository.acquireSkill(token, skillId: skillId),
+    );
+  }
+
+  Future<void> _completeObjective(String questId, String objectiveId) async {
+    await _runProgressionAction(
+      (repository, token) =>
+          repository.completeObjective(token, questId, objectiveId),
+    );
+  }
+
+  Future<void> _completeQuest(String questId) async {
+    await _runProgressionAction(
+      (repository, token) => repository.completeQuest(token, questId),
+    );
+  }
+
+  Future<void> _activateTemplate(String templateId) async {
+    if (_activatingTemplateIds.contains(templateId)) return;
+    setState(() => _activatingTemplateIds.add(templateId));
+    try {
+      await _runProgressionAction(
+        (repository, token) => repository.activateTemplate(token, templateId),
+        reconcileAlreadyActive: true,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _activatingTemplateIds.remove(templateId));
+      }
+    }
+  }
+
+  Future<void> _runProgressionAction(
+    Future<void> Function(ProgressionRepository repository, String token)
+    action, {
+    bool reconcileAlreadyActive = false,
+  }) async {
+    final repository = widget.progressionRepository;
+    final token = widget.accessToken;
+    if (repository == null || token == null) return;
+    try {
+      await action(repository, token);
+      await _loadDashboard(refresh: true);
+    } on ApiException catch (error) {
+      if (error.code == 'CONCURRENT_UPDATE' ||
+          (reconcileAlreadyActive && error.code == 'TEMPLATE_ALREADY_ACTIVE')) {
+        await _loadDashboard(refresh: true);
+      }
+      if (reconcileAlreadyActive && error.code == 'TEMPLATE_ALREADY_ACTIVE') {
+        return;
+      }
+      if (mounted) setState(() => _errorMessage = error.message);
+    } catch (error, stackTrace) {
+      AppLogger.unexpected('dashboard-progression-update', error, stackTrace);
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = 'The progression update failed. Try again.';
+      });
+    }
   }
 }
