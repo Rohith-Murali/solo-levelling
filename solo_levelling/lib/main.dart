@@ -10,6 +10,8 @@ import 'features/auth/data/auth_repository_impl.dart';
 import 'features/auth/data/refresh_token_storage.dart';
 import 'features/character/data/character_api.dart';
 import 'features/character/data/character_repository_impl.dart';
+import 'features/dashboard/data/dashboard_api.dart';
+import 'features/dashboard/data/dashboard_repository_impl.dart';
 
 void main() {
   AppConfig.validate();
@@ -22,10 +24,14 @@ void main() {
   final characterRepository = CharacterRepositoryImpl(
     api: CharacterApi(apiClient),
   );
+  final dashboardRepository = DashboardRepositoryImpl(
+    api: DashboardApi(apiClient),
+  );
   runApp(
     SoloLevelingApp(
       authController: AuthController(authRepository),
       characterRepository: characterRepository,
+      dashboardRepository: dashboardRepository,
     ),
   );
 }

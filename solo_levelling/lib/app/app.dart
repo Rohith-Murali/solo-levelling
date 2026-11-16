@@ -3,20 +3,23 @@ import 'package:material_ui/material_ui.dart';
 import '../features/auth/application/auth_controller.dart';
 import '../features/auth/presentation/login_screen.dart';
 import '../features/auth/presentation/register_screen.dart';
-import '../features/auth/presentation/welcome_screen.dart';
 import '../features/character/domain/character_repository.dart';
 import '../features/character/presentation/character_creation_screen.dart';
+import '../features/dashboard/domain/dashboard_repository.dart';
+import '../features/dashboard/presentation/dashboard_screen.dart';
 import 'theme/app_theme.dart';
 
 class SoloLevelingApp extends StatefulWidget {
   const SoloLevelingApp({
     required this.authController,
     required this.characterRepository,
+    required this.dashboardRepository,
     super.key,
   });
 
   final AuthController authController;
   final CharacterRepository characterRepository;
+  final DashboardRepository dashboardRepository;
 
   @override
   State<SoloLevelingApp> createState() => _SoloLevelingAppState();
@@ -55,7 +58,12 @@ class _SoloLevelingAppState extends State<SoloLevelingApp> {
                 onCreated: widget.authController.markCharacterCreated,
               );
             }
-            return WelcomeScreen(user: user, controller: widget.authController);
+            return DashboardScreen(
+              repository: widget.dashboardRepository,
+              accessToken: widget.authController.accessToken,
+              onLogout: widget.authController.logout,
+              onCharacterRequired: widget.authController.markCharacterMissing,
+            );
           }
 
           if (_showRegistration) {

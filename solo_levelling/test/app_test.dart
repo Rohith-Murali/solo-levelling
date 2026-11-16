@@ -12,6 +12,8 @@ import 'package:solo_levelling/features/auth/domain/auth_repository.dart';
 import 'package:solo_levelling/features/auth/domain/auth_user.dart';
 import 'package:solo_levelling/features/character/domain/character_options.dart';
 import 'package:solo_levelling/features/character/domain/character_repository.dart';
+import 'package:solo_levelling/features/dashboard/domain/dashboard_data.dart';
+import 'package:solo_levelling/features/dashboard/domain/dashboard_repository.dart';
 
 void main() {
   test('resolves API paths below the configured base URI', () async {
@@ -77,6 +79,7 @@ void main() {
       SoloLevelingApp(
         authController: controller,
         characterRepository: _FakeCharacterRepository(),
+        dashboardRepository: _FakeDashboardRepository(),
       ),
     );
     await tester.pumpAndSettle();
@@ -97,7 +100,7 @@ void main() {
     );
   });
 
-  testWidgets('new account completes character creation before welcome', (
+  testWidgets('new account completes character creation before dashboard', (
     tester,
   ) async {
     final repository = _FakeCharacterRepository();
@@ -106,6 +109,7 @@ void main() {
       SoloLevelingApp(
         authController: controller,
         characterRepository: repository,
+        dashboardRepository: _FakeDashboardRepository(),
       ),
     );
     await tester.pumpAndSettle();
@@ -156,17 +160,32 @@ void main() {
     expect(repository.createdName, 'Sung');
     expect(repository.createdAvatarId, 'avatar-01');
     expect(repository.createdSkillId, 'focus');
-    expect(find.text('WELCOME, HUNTER'), findsOneWidget);
+    expect(find.text('PLAYER STATUS'), findsOneWidget);
+    expect(find.text('ACTIVE QUESTS'), findsOneWidget);
+    expect(find.text('No active quests detected.'), findsOneWidget);
+    final recentActivity = find.text('RECENT ACTIVITY');
+    await tester.scrollUntilVisible(
+      recentActivity,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(recentActivity, findsOneWidget);
   });
 
-  testWidgets('returning account with a character opens welcome directly', (
+  testWidgets('returning account with a character opens dashboard directly', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     final controller = AuthController(_FakeAuthRepository());
     await tester.pumpWidget(
       SoloLevelingApp(
         authController: controller,
         characterRepository: _FakeCharacterRepository(),
+        dashboardRepository: _FakeDashboardRepository(),
       ),
     );
     await tester.pumpAndSettle();
@@ -182,8 +201,10 @@ void main() {
     await tester.tap(find.text('Sign in'));
     await tester.pumpAndSettle();
 
-    expect(find.text('WELCOME, HUNTER'), findsOneWidget);
+    expect(find.text('PLAYER STATUS'), findsOneWidget);
+    expect(find.text('Hunter'), findsOneWidget);
     expect(find.text('CHARACTER INITIALIZATION'), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 }
 
@@ -256,5 +277,52 @@ class _FakeCharacterRepository implements CharacterRepository {
     createdName = name;
     createdAvatarId = avatarId;
     createdSkillId = startingSkillId;
+  }
+}
+
+class _FakeDashboardRepository implements DashboardRepository {
+  @override
+  Future<DashboardData> load(String accessToken) async {
+    return const DashboardData(
+      character: DashboardCharacter(
+        id: 'character-id',
+        name: 'Hunter',
+        avatarId: 'avatar-01',
+        avatarImagePath: 'avatars/Avatar 1.png',
+        rank: 'E',
+        level: 1,
+        totalXp: 0,
+        currentLevelXp: 0,
+        xpToNextLevel: 100,
+        skillUnlockTokens: 0,
+      ),
+      statistics: DashboardStatistics(
+        completedQuestCount: 0,
+        activeQuestCount: 0,
+        acquiredSkillCount: 1,
+        achievementCount: 0,
+        completedGoalCount: 0,
+        completedMilestoneCount: 0,
+      ),
+      activeQuests: [],
+      skills: [
+        DashboardSkill(
+          id: 'focus',
+          name: 'Focus',
+          level: 1,
+          currentLevelXp: 0,
+          xpToNextLevel: 100,
+        ),
+      ],
+      progressionOverview: DashboardProgressionOverview(
+        period: 'LAST_30_DAYS',
+        characterXpEarned: null,
+        questsCompleted: null,
+        goalsCompleted: null,
+        milestonesCompleted: null,
+        xpTrend: [],
+      ),
+      recentActivity: [],
+    );
   }
 }
