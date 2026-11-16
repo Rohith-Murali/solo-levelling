@@ -15,15 +15,15 @@ class DashboardScreen extends StatefulWidget {
   const DashboardScreen({
     required this.repository,
     required this.accessToken,
-    required this.onLogout,
     required this.onCharacterRequired,
+    this.onCharacterLoaded,
     super.key,
   });
 
   final DashboardRepository repository;
   final String? accessToken;
-  final VoidCallback onLogout;
   final VoidCallback onCharacterRequired;
+  final ValueChanged<DashboardCharacter>? onCharacterLoaded;
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -65,6 +65,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _data = data;
         _errorMessage = null;
       });
+      widget.onCharacterLoaded?.call(data.character);
     } on ApiException catch (error) {
       if (!mounted) return;
       if (error.code == 'CHARACTER_REQUIRED') {
@@ -105,8 +106,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(18, 10, 18, 28),
             children: [
-              _SystemHeader(onLogout: widget.onLogout),
-              const SizedBox(height: 22),
+              const SizedBox(height: 12),
               if (_isLoading && data == null)
                 const _DashboardLoadingState()
               else if (_errorMessage != null && data == null)

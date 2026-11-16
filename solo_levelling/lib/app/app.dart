@@ -6,7 +6,7 @@ import '../features/auth/presentation/register_screen.dart';
 import '../features/character/domain/character_repository.dart';
 import '../features/character/presentation/character_creation_screen.dart';
 import '../features/dashboard/domain/dashboard_repository.dart';
-import '../features/dashboard/presentation/dashboard_screen.dart';
+import '../shared/widgets/navigation/main_shell.dart';
 import 'theme/app_theme.dart';
 
 class SoloLevelingApp extends StatefulWidget {
@@ -58,7 +58,7 @@ class _SoloLevelingAppState extends State<SoloLevelingApp> {
                 onCreated: widget.authController.markCharacterCreated,
               );
             }
-            return DashboardScreen(
+            return MainShell(
               repository: widget.dashboardRepository,
               accessToken: widget.authController.accessToken,
               onLogout: widget.authController.logout,
