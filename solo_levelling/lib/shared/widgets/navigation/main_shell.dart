@@ -81,6 +81,7 @@ class _MainShellState extends State<MainShell> {
         if (_visitedTabs.contains(1))
           QuestCenterScreen(
             repository: widget.progressionRepository,
+            dashboardRepository: widget.repository,
             accessToken: widget.accessToken,
             isActive: _selectedIndex == 1,
             onDataChanged: _refreshDashboard,

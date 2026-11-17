@@ -8,6 +8,7 @@ import '../domain/dashboard_data.dart';
 import '../domain/dashboard_repository.dart';
 import '../../progression/domain/progression_data.dart';
 import '../../progression/domain/progression_repository.dart';
+import '../../../shared/widgets/system_notification.dart';
 
 part 'dashboard_header_widgets.dart';
 part 'dashboard_quest_skill_widgets.dart';
@@ -266,6 +267,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _acquireSkill(String skillId) async {
     await _runProgressionAction(
       (repository, token) => repository.acquireSkill(token, skillId: skillId),
+      kind: _ProgressionActionKind.skill,
     );
   }
 
@@ -279,6 +281,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _completeQuest(String questId) async {
     await _runProgressionAction(
       (repository, token) => repository.completeQuest(token, questId),
+      kind: _ProgressionActionKind.quest,
     );
   }
 
@@ -289,6 +292,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       await _runProgressionAction(
         (repository, token) => repository.activateTemplate(token, templateId),
         reconcileAlreadyActive: true,
+        kind: _ProgressionActionKind.template,
       );
     } finally {
       if (mounted) {
@@ -301,13 +305,86 @@ class _DashboardScreenState extends State<DashboardScreen> {
     Future<void> Function(ProgressionRepository repository, String token)
     action, {
     bool reconcileAlreadyActive = false,
+    _ProgressionActionKind? kind,
   }) async {
     final repository = widget.progressionRepository;
     final token = widget.accessToken;
     if (repository == null || token == null) return;
+    final before = _data;
     try {
       await action(repository, token);
       await _loadDashboard(refresh: true);
+      if (!mounted) return;
+      final after = _data;
+      if (after == null) return;
+      if (kind == _ProgressionActionKind.skill) {
+        final oldIds = {
+          for (final skill in before?.skills ?? const []) skill.id,
+        };
+        final added = after.skills.where((skill) => !oldIds.contains(skill.id));
+        final skill = added.isEmpty ? null : added.first;
+        if (skill != null) {
+          await SystemNotification.showStack(context, [
+            SystemNotificationData(
+              icon: Icons.auto_awesome,
+              message: 'NEW SKILL UNLOCKED\n\n${skill.name}',
+            ),
+          ]);
+        }
+      } else if (kind == _ProgressionActionKind.quest) {
+        final xp = before == null
+            ? 0
+            : (after.character.totalXp - before.character.totalXp).clamp(
+                0,
+                1 << 30,
+              );
+        final notifications = <SystemNotificationData>[
+          SystemNotificationData(
+            icon: Icons.check_circle_outline,
+            message: 'QUEST COMPLETED\n\n+${xp} XP EARNED',
+          ),
+        ];
+        if (before != null && after.character.level > before.character.level) {
+          notifications.add(
+            SystemNotificationData(
+              icon: Icons.trending_up,
+              message: 'LEVELLED UP\n\nLV ${after.character.level}',
+            ),
+          );
+        }
+        if (before != null) {
+          final oldSkills = {
+            for (final skill in before.skills) skill.id: skill,
+          };
+          for (final skill in after.skills) {
+            final oldSkill = oldSkills[skill.id];
+            if (oldSkill != null && skill.level > oldSkill.level) {
+              notifications.add(
+                SystemNotificationData(
+                  icon: Icons.auto_awesome,
+                  message:
+                      'SKILL ${skill.name.toUpperCase()} LEVELLED UP\n\nLV ${skill.level}',
+                ),
+              );
+            }
+          }
+        }
+        await SystemNotification.showStack(context, notifications);
+      } else if (kind == _ProgressionActionKind.template) {
+        final oldIds = {
+          for (final quest in before?.activeQuests ?? const []) quest.id,
+        };
+        final added = after.activeQuests.where(
+          (quest) => !oldIds.contains(quest.id),
+        );
+        if (added.isNotEmpty) {
+          await SystemNotification.show(
+            context,
+            icon: Icons.assignment_outlined,
+            message: 'NEW QUEST UNLOCKED\n\n${added.first.title}',
+          );
+        }
+      }
     } on ApiException catch (error) {
       if (error.code == 'CONCURRENT_UPDATE' ||
           (reconcileAlreadyActive && error.code == 'TEMPLATE_ALREADY_ACTIVE')) {
@@ -326,3 +403,5 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 }
+
+enum _ProgressionActionKind { skill, quest, template }

@@ -3,8 +3,10 @@ import 'package:material_ui/material_ui.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/network/api_client.dart';
+import '../../dashboard/domain/dashboard_repository.dart';
 import '../domain/progression_data.dart';
 import '../domain/progression_repository.dart';
+import '../../../shared/widgets/system_notification.dart';
 
 class QuestCenterScreen extends StatefulWidget {
   const QuestCenterScreen({
@@ -12,6 +14,7 @@ class QuestCenterScreen extends StatefulWidget {
     required this.accessToken,
     required this.isActive,
     required this.onDataChanged,
+    required this.dashboardRepository,
     super.key,
   });
 
@@ -19,6 +22,7 @@ class QuestCenterScreen extends StatefulWidget {
   final String? accessToken;
   final bool isActive;
   final VoidCallback onDataChanged;
+  final DashboardRepository dashboardRepository;
 
   @override
   State<QuestCenterScreen> createState() => _QuestCenterScreenState();
@@ -80,8 +84,8 @@ class _QuestCenterScreenState extends State<QuestCenterScreen> {
     }
   }
 
-  Future<void> _performMutation(Future<void> Function() action) async {
-    if (_isMutating) return;
+  Future<bool> _performMutation(Future<void> Function() action) async {
+    if (_isMutating) return false;
     setState(() {
       _isMutating = true;
       _errorMessage = null;
@@ -90,22 +94,25 @@ class _QuestCenterScreenState extends State<QuestCenterScreen> {
       await action();
       await _load();
       widget.onDataChanged();
+      return true;
     } on ApiException catch (error) {
-      if (!mounted) return;
+      if (!mounted) return false;
       if (error.code == 'CONCURRENT_UPDATE') {
         await _load();
       }
       if (error.code == 'TEMPLATE_ALREADY_ACTIVE') {
         await _load();
-        return;
+        return false;
       }
       if (mounted) setState(() => _errorMessage = error.message);
+      return false;
     } catch (error, stackTrace) {
       AppLogger.unexpected('quest-center-update', error, stackTrace);
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() {
         _errorMessage = 'The quest could not be updated. Try again.';
       });
+      return false;
     } finally {
       if (mounted) setState(() => _isMutating = false);
     }
@@ -133,7 +140,50 @@ class _QuestCenterScreenState extends State<QuestCenterScreen> {
     final repository = widget.repository;
     final token = widget.accessToken;
     if (repository == null || token == null) return;
-    await _performMutation(() => repository.completeQuest(token, questId));
+    final beforeQuest = _quests
+        .where((quest) => quest.id == questId)
+        .firstOrNull;
+    final beforeDashboard = await widget.dashboardRepository.load(token);
+    final succeeded = await _performMutation(
+      () => repository.completeQuest(token, questId),
+    );
+    if (!succeeded) return;
+    final afterDashboard = await widget.dashboardRepository.load(token);
+    final xp =
+        (afterDashboard.character.totalXp - beforeDashboard.character.totalXp)
+            .clamp(0, 1 << 30);
+    if (mounted && beforeQuest != null) {
+      final notifications = <SystemNotificationData>[
+        SystemNotificationData(
+          icon: Icons.check_circle_outline,
+          message: 'QUEST COMPLETED\n\n${beforeQuest.title}\n\n+$xp XP EARNED',
+        ),
+      ];
+      if (afterDashboard.character.level > beforeDashboard.character.level) {
+        notifications.add(
+          SystemNotificationData(
+            icon: Icons.trending_up,
+            message: 'LEVELLED UP\n\nLV ${afterDashboard.character.level}',
+          ),
+        );
+      }
+      final oldSkills = {
+        for (final skill in beforeDashboard.skills) skill.id: skill,
+      };
+      for (final skill in afterDashboard.skills) {
+        final oldSkill = oldSkills[skill.id];
+        if (oldSkill != null && skill.level > oldSkill.level) {
+          notifications.add(
+            SystemNotificationData(
+              icon: Icons.auto_awesome,
+              message:
+                  'SKILL ${skill.name.toUpperCase()} LEVELLED UP\n\nLV ${skill.level}',
+            ),
+          );
+        }
+      }
+      await SystemNotification.showStack(context, notifications);
+    }
   }
 
   @override
