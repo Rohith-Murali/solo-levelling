@@ -243,6 +243,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(progressionRepository.activationCount, 1);
     expect(find.text('Begin Body'), findsOneWidget);
+    await tester.tap(find.text('Complete quest'));
+    await tester.pumpAndSettle();
+    expect(find.text('COMPLETED QUESTS'), findsNothing);
 
     await tester.tap(find.text('Skills'));
     await tester.pumpAndSettle();
@@ -256,6 +259,12 @@ void main() {
     await tester.tap(find.text('History'));
     await tester.pumpAndSettle();
     expect(find.text('HISTORY & ANALYTICS'), findsOneWidget);
+    expect(find.text('COMPLETED QUESTS'), findsOneWidget);
+    expect(find.text('Begin Body'), findsOneWidget);
+
+    await tester.tap(find.text('Dashboard'));
+    await tester.pumpAndSettle();
+    expect(find.text('Begin Body'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }
@@ -424,7 +433,25 @@ class _FakeProgressionRepository implements ProgressionRepository {
   ) async {}
 
   @override
-  Future<void> completeQuest(String accessToken, String questId) async {}
+  Future<void> completeQuest(String accessToken, String questId) async {
+    quests = quests
+        .map(
+          (quest) => quest.id == questId
+              ? ProgressionQuest(
+                  id: quest.id,
+                  title: quest.title,
+                  description: quest.description,
+                  type: quest.type,
+                  difficulty: quest.difficulty,
+                  primarySkillId: quest.primarySkillId,
+                  objectives: quest.objectives,
+                  completed: true,
+                  sourceTemplateId: quest.sourceTemplateId,
+                )
+              : quest,
+        )
+        .toList(growable: false);
+  }
 
   @override
   Future<List<LibrarySkill>> loadSkillLibrary(

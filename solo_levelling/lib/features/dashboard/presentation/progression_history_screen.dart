@@ -5,16 +5,20 @@ import '../../../core/logging/app_logger.dart';
 import '../../../core/network/api_client.dart';
 import '../domain/dashboard_data.dart';
 import '../domain/dashboard_repository.dart';
+import '../../progression/domain/progression_data.dart';
+import '../../progression/domain/progression_repository.dart';
 
 class ProgressionHistoryScreen extends StatefulWidget {
   const ProgressionHistoryScreen({
     required this.repository,
+    required this.progressionRepository,
     required this.accessToken,
     required this.isActive,
     super.key,
   });
 
   final DashboardRepository repository;
+  final ProgressionRepository? progressionRepository;
   final String? accessToken;
   final bool isActive;
 
@@ -25,6 +29,7 @@ class ProgressionHistoryScreen extends StatefulWidget {
 
 class _ProgressionHistoryScreenState extends State<ProgressionHistoryScreen> {
   DashboardData? _data;
+  List<ProgressionQuest> _quests = const [];
   String? _errorMessage;
   bool _isLoading = true;
 
@@ -56,8 +61,15 @@ class _ProgressionHistoryScreenState extends State<ProgressionHistoryScreen> {
     });
     try {
       final data = await widget.repository.load(token);
+      final progressionRepository = widget.progressionRepository;
+      final quests = progressionRepository == null
+          ? const <ProgressionQuest>[]
+          : await progressionRepository.loadQuests(token);
       if (!mounted) return;
-      setState(() => _data = data);
+      setState(() {
+        _data = data;
+        _quests = quests;
+      });
     } on ApiException catch (error) {
       if (!mounted) return;
       setState(() => _errorMessage = error.message);
@@ -76,6 +88,9 @@ class _ProgressionHistoryScreenState extends State<ProgressionHistoryScreen> {
   Widget build(BuildContext context) {
     final data = _data;
     final overview = data?.progressionOverview;
+    final completedQuests = _quests
+        .where((quest) => quest.completed)
+        .toList(growable: false);
     final maxXp =
         overview?.xpTrend.fold<int>(
           0,
@@ -138,6 +153,20 @@ class _ProgressionHistoryScreenState extends State<ProgressionHistoryScreen> {
               _ActivityEntry(activity: activity),
               if (activity != data!.recentActivity.last)
                 const SizedBox(height: 8),
+            ],
+          const SizedBox(height: 20),
+          Text(
+            'COMPLETED QUESTS',
+            style: Theme.of(context).textTheme.titleMedium
+                ?.copyWith(color: AppColors.accent, letterSpacing: 1),
+          ),
+          const SizedBox(height: 10),
+          if (!_isLoading && completedQuests.isEmpty)
+            const _HistoryEmpty('Completed quests will appear here.')
+          else
+            for (final quest in completedQuests) ...[
+              _CompletedQuestEntry(quest: quest),
+              if (quest != completedQuests.last) const SizedBox(height: 8),
             ],
         ],
       ),
@@ -304,6 +333,46 @@ class _ActivityEntry extends StatelessWidget {
       ),
     );
   }
+}
+
+class _CompletedQuestEntry extends StatelessWidget {
+  const _CompletedQuestEntry({required this.quest});
+  final ProgressionQuest quest;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: AppColors.border),
+    ),
+    child: Row(
+      children: [
+        const Icon(Icons.check_circle_outline, color: AppColors.accent),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                quest.title,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                '${quest.type} · ${quest.difficulty}',
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _HistoryEmpty extends StatelessWidget {

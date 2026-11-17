@@ -70,11 +70,16 @@ export class ProgressionEngine {
     return this.result(nextState, quest, characterXpGained, skillXpGained, levelUps, [previousRank, currentRank], [previousTitle, currentTitle], newlyUnlockedTitles, newlyEarnedUnlockTokens, events, false, now, newSkill, skill ? Array.from({ length: newSkill!.level - skill.level }, (_, index) => skill!.level + index + 1) : []);
   }
 
+  grantSkill(state: ProgressionState, skill: Omit<SkillState, "level" | "xp" | "totalXp" | "acquiredAt" | "acquisitionSource" | "status">, acquisitionSource: string, now = new Date()): { state: ProgressionState; event: ProgressionEvent } {
+    if (state.skills[skill.id]) throw new Error("Skill has already been acquired.");
+    const acquired: SkillState = { ...skill, level: 1, xp: 0, totalXp: 0, acquiredAt: now, acquisitionSource, status: "ACTIVE" };
+    return { state: { ...state, skills: { ...state.skills, [skill.id]: acquired } }, event: { id: randomUUID(), characterId: state.characterId, type: "SKILL_ACQUIRED", relatedEntityId: skill.id, previousValue: null, newValue: acquired, occurredAt: now } };
+  }
+
   acquireSkill(state: ProgressionState, skill: Omit<SkillState, "level" | "xp" | "totalXp" | "acquiredAt" | "acquisitionSource" | "status">, now = new Date()): { state: ProgressionState; event: ProgressionEvent } {
     if (state.skillUnlockTokens < 1) throw new Error("No skill unlock tokens available.");
-    if (state.skills[skill.id]) throw new Error("Skill has already been acquired.");
-    const acquired: SkillState = { ...skill, level: 1, xp: 0, totalXp: 0, acquiredAt: now, acquisitionSource: "SKILL_UNLOCK", status: "ACTIVE" };
-    return { state: { ...state, skillUnlockTokens: state.skillUnlockTokens - 1, skills: { ...state.skills, [skill.id]: acquired } }, event: { id: randomUUID(), characterId: state.characterId, type: "SKILL_ACQUIRED", relatedEntityId: skill.id, previousValue: null, newValue: acquired, occurredAt: now } };
+    const acquired = this.grantSkill(state, skill, "SKILL_UNLOCK", now);
+    return { state: { ...acquired.state, skillUnlockTokens: state.skillUnlockTokens - 1 }, event: acquired.event };
   }
 
   private advance(level: number, xp: number): { level: number; xp: number; totalXp: number } { let nextLevel = level; let remaining = xp; while (remaining >= xpForLevel(nextLevel, this.config)) { remaining -= xpForLevel(nextLevel, this.config); nextLevel++; } return { level: nextLevel, xp: remaining, totalXp: xp }; }

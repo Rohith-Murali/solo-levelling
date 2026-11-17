@@ -108,6 +108,7 @@ class _MainShellState extends State<MainShell> {
         if (_visitedTabs.contains(4))
           ProgressionHistoryScreen(
             repository: widget.repository,
+            progressionRepository: widget.progressionRepository,
             accessToken: widget.accessToken,
             isActive: _selectedIndex == 4,
           )

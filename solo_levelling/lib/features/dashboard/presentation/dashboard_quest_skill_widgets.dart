@@ -20,10 +20,13 @@ class _ActiveQuestsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final activeQuests = quests
+        .where((quest) => !quest.completed)
+        .toList(growable: false);
     return _DashboardSection(
       title: 'ACTIVE QUESTS',
-      trailing: '${quests.length}',
-      child: quests.isEmpty
+      trailing: '${activeQuests.length}',
+      child: activeQuests.isEmpty
           ? Column(
               children: [
                 const _EmptySectionMessage(
@@ -43,13 +46,13 @@ class _ActiveQuestsSection extends StatelessWidget {
             )
           : Column(
               children: [
-                for (final quest in quests) ...[
+                for (final quest in activeQuests) ...[
                   _QuestCard(
                     quest: quest,
                     onObjectiveComplete: onObjectiveComplete,
                     onQuestComplete: onQuestComplete,
                   ),
-                  if (quest != quests.last) const SizedBox(height: 10),
+                  if (quest != activeQuests.last) const SizedBox(height: 10),
                 ],
               ],
             ),

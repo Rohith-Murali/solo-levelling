@@ -8,6 +8,45 @@ import { createQuestService } from "../dist/services/quest.service.js";
 
 const skill = { id: "focus", name: "Focus", description: "Train attention." };
 
+function createCharacterRecord(overrides = {}) {
+  const now = new Date();
+  return {
+    id: "character-1",
+    name: "Hunter",
+    avatarId: "avatar-01",
+    level: 1,
+    xp: 0,
+    totalXp: 0,
+    rank: "E",
+    title: "Shadow Initiate",
+    titleHistory: ["Shadow Initiate"],
+    skillUnlockTokens: 0,
+    version: 0,
+    startingSkill: { id: "focus", name: "Focus", level: 1, xp: 0 },
+    skills: [
+      {
+        id: "focus",
+        name: "Focus",
+        description: "Train attention.",
+        category: "STARTING",
+        level: 1,
+        xp: 0,
+        totalXp: 0,
+        acquiredAt: now,
+        acquisitionSource: "CHARACTER_CREATION",
+        status: "ACTIVE",
+      },
+    ],
+    goals: [],
+    milestones: [],
+    quests: [],
+    progressionEvents: [],
+    createdAt: now,
+    updatedAt: now,
+    ...overrides,
+  };
+}
+
 test("progresses character XP with carryover and independent skill XP", () => {
   const engine = new ProgressionEngine();
   const initial = engine.createInitialState("character-1", skill);
@@ -75,15 +114,37 @@ test("rejects incomplete quests and awards no skill XP for an unacquired skill",
 
 test("repeated template activation is an idempotent success", async () => {
   const originalFindById = User.findById;
+  const character = createCharacterRecord({
+    quests: [
+      {
+        id: "existing-body-quest",
+        title: "Existing body quest",
+        description: "Already activated.",
+        type: "MAIN",
+        difficulty: "EASY",
+        primarySkillId: "fitness",
+        objectives: [],
+        completed: false,
+        sourceTemplateId: "body",
+      },
+    ],
+  });
+  character.skills.push({
+    id: "fitness",
+    name: "Fitness",
+    description: "Build a sustainable foundation for physical health.",
+    category: "PHYSICAL",
+    level: 1,
+    xp: 0,
+    totalXp: 0,
+    acquiredAt: new Date(),
+    acquisitionSource: "QUEST_TEMPLATE",
+    status: "ACTIVE",
+  });
 
   try {
     User.findById = () => ({
-      select: async () => ({
-        character: {
-          level: 1,
-          quests: [{ sourceTemplateId: "body" }],
-        },
-      }),
+      select: async () => ({ character }),
     });
 
     assert.deepEqual(
@@ -95,10 +156,50 @@ test("repeated template activation is an idempotent success", async () => {
   }
 });
 
+test("repeated activation acquires a missing template skill without duplicating quests", async () => {
+  const originalFindById = User.findById;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  let character = createCharacterRecord({
+    quests: [
+      {
+        id: "existing-body-quest",
+        title: "Existing body quest",
+        description: "Already activated.",
+        type: "MAIN",
+        difficulty: "EASY",
+        primarySkillId: "fitness",
+        objectives: [],
+        completed: false,
+        sourceTemplateId: "body",
+      },
+    ],
+  });
+
+  try {
+    User.findById = () => ({
+      select: async () => ({ character }),
+    });
+    User.findOneAndUpdate = async (_filter, update) => {
+      character = update.$set.character;
+      return { character };
+    };
+
+    const result = await createQuestService().activateTemplate("user-1", "body");
+
+    assert.equal(result.alreadyActive, true);
+    assert.equal(character.quests.length, 1);
+    assert.equal(character.skills.length, 2);
+    assert.equal(character.skills.find((item) => item.id === "fitness").acquisitionSource, "QUEST_TEMPLATE");
+  } finally {
+    User.findById = originalFindById;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+});
+
 test("template activation recovers when another request activates it concurrently", async () => {
   const originalFindById = User.findById;
   const originalFindOneAndUpdate = User.findOneAndUpdate;
-  let latestCharacter = { level: 1, version: 0, quests: [] };
+  let latestCharacter = createCharacterRecord();
 
   try {
     User.findById = () => ({
@@ -123,14 +224,14 @@ test("template activation remains a conflict when a concurrent update did not ac
   const originalFindById = User.findById;
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   let reads = 0;
+  const initialCharacter = createCharacterRecord();
 
   try {
     User.findById = () => ({
       select: async () => ({
         character: {
-          level: 1,
+          ...initialCharacter,
           version: reads++ === 0 ? 0 : 1,
-          quests: [],
         },
       }),
     });
@@ -189,48 +290,20 @@ test("legacy version zero updates also match records without a stored version", 
   });
 });
 
-test("template quests award Character XP and Skill XP only to acquired skills", async () => {
+test("template activation grants its skill and quests award both XP types", async () => {
   const originalFindById = User.findById;
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const now = new Date();
-  let character = {
-    id: "character-1",
-    name: "Hunter",
-    avatarId: "avatar-01",
-    level: 1,
-    xp: 0,
-    totalXp: 0,
-    rank: "E",
-    title: "Shadow Initiate",
-    titleHistory: ["Shadow Initiate"],
-    skillUnlockTokens: 0,
-    version: 0,
-    startingSkill: { id: "focus", name: "Focus", level: 1, xp: 0 },
-    skills: [
-      {
-        id: "focus",
-        name: "Focus",
-        description: "Train attention.",
-        category: "STARTING",
-        level: 1,
-        xp: 0,
-        totalXp: 0,
-        acquiredAt: now,
-        acquisitionSource: "CHARACTER_CREATION",
-        status: "ACTIVE",
-      },
-    ],
-    goals: [],
-    milestones: [],
-    quests: [],
-    progressionEvents: [],
-    createdAt: now,
-    updatedAt: now,
-  };
+  let character = createCharacterRecord({ createdAt: now, updatedAt: now });
 
   try {
     User.findById = () => ({
-      select: async () => ({ character }),
+      select: async () =>
+        new User({
+          email: "hunter@example.com",
+          passwordHash: "test",
+          character,
+        }),
     });
     User.findOneAndUpdate = async (_filter, update) => {
       character = update.$set.character;
@@ -241,17 +314,26 @@ test("template quests award Character XP and Skill XP only to acquired skills", 
     const bodyActivation = await service.activateTemplate("user-1", "body");
     assert.equal(bodyActivation.alreadyActive, false);
     assert.equal(bodyActivation.quests.length, 9);
-    assert.equal(character.skills.length, 1);
+    assert.equal(character.skills.length, 2);
+    assert.equal(character.id, "character-1");
+    assert.equal(character.name, "Hunter");
+    assert.equal(character.skillUnlockTokens, 0);
+    assert.equal(
+      character.skills.find((item) => item.id === "fitness").acquisitionSource,
+      "QUEST_TEMPLATE",
+    );
 
     const bodyQuest = character.quests.find(
       (quest) => quest.sourceTemplateId === "body",
     );
     const bodyCompletion = await service.complete("user-1", bodyQuest.id);
     assert.equal(bodyCompletion.progression.characterXpGained, 100);
-    assert.equal(bodyCompletion.progression.skillXpGained, 0);
+    assert.equal(bodyCompletion.progression.skillXpGained, 50);
     assert.equal(character.totalXp, 100);
+    assert.equal(character.skills.find((item) => item.id === "fitness").totalXp, 50);
 
     await service.activateTemplate("user-1", "mind");
+    assert.equal(character.skills.length, 2);
     const mindQuest = character.quests.find(
       (quest) => quest.sourceTemplateId === "mind",
     );

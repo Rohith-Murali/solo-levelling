@@ -3,6 +3,7 @@ import { AppError } from "../errors/app-error.js";
 import { ProgressionEngine, type ProgressionState } from "../core/progression/index.js";
 import { User } from "../models/user.model.js";
 import type { CharacterRecord } from "../models/user.model.js";
+import { toPlainCharacterRecord } from "./character-record.js";
 import { characterVersionFilter } from "./character-version-filter.js";
 import { startingSkills } from "./character-catalog.js";
 
@@ -35,7 +36,8 @@ export function createSkillService() {
       }
       const acquired = engine.acquireSkill(state, skill);
       const now = new Date();
-      const nextCharacter: CharacterRecord = { ...character, skillUnlockTokens: acquired.state.skillUnlockTokens, skills: Object.values(acquired.state.skills).map((item) => ({ id: item.id, name: item.name, description: item.description ?? "", category: item.category ?? "CUSTOM", level: item.level, xp: item.xp, totalXp: item.totalXp, acquiredAt: item.acquiredAt, acquisitionSource: item.acquisitionSource, status: item.status })), progressionEvents: [...(character.progressionEvents ?? []), acquired.event], version: (character.version ?? 0) + 1, updatedAt: now };
+      const plainCharacter = toPlainCharacterRecord(character);
+      const nextCharacter: CharacterRecord = { ...plainCharacter, skillUnlockTokens: acquired.state.skillUnlockTokens, skills: Object.values(acquired.state.skills).map((item) => ({ id: item.id, name: item.name, description: item.description ?? "", category: item.category ?? "CUSTOM", level: item.level, xp: item.xp, totalXp: item.totalXp, acquiredAt: item.acquiredAt, acquisitionSource: item.acquisitionSource, status: item.status })), progressionEvents: [...(plainCharacter.progressionEvents ?? []), acquired.event], version: (character.version ?? 0) + 1, updatedAt: now };
       const updated = await User.findOneAndUpdate({ _id: userId, ...characterVersionFilter(character.version) }, { $set: { character: nextCharacter } }, { new: true, runValidators: true });
       if (!updated) throw new AppError(409, "CONCURRENT_UPDATE", "The character changed. Please retry.");
       return nextCharacter.skills.find((item) => item.id === skill.id);

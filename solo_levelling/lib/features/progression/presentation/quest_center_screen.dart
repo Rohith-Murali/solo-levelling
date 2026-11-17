@@ -148,9 +148,6 @@ class _QuestCenterScreenState extends State<QuestCenterScreen> {
     final activeQuests = _quests
         .where((quest) => !quest.completed)
         .toList(growable: false);
-    final completedQuests = _quests
-        .where((quest) => quest.completed)
-        .toList(growable: false);
 
     return RefreshIndicator(
       onRefresh: _load,
@@ -216,21 +213,6 @@ class _QuestCenterScreenState extends State<QuestCenterScreen> {
                     ],
                   ),
           ),
-          if (completedQuests.isNotEmpty) ...[
-            const SizedBox(height: 18),
-            _QuestSection(
-              title: 'COMPLETED QUESTS',
-              child: Column(
-                children: [
-                  for (final quest in completedQuests) ...[
-                    _CompletedQuestEntry(quest: quest),
-                    if (quest != completedQuests.last)
-                      const SizedBox(height: 8),
-                  ],
-                ],
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -382,22 +364,6 @@ class _TemplateEntry extends StatelessWidget {
           onPressed: isMutating ? null : () => onActivate(template.id),
           child: const Text('Activate'),
         ),
-      ],
-    ),
-  );
-}
-
-class _CompletedQuestEntry extends StatelessWidget {
-  const _CompletedQuestEntry({required this.quest});
-  final ProgressionQuest quest;
-
-  @override
-  Widget build(BuildContext context) => _QuestCard(
-    child: Row(
-      children: [
-        const Icon(Icons.check_circle_outline, color: AppColors.accent),
-        const SizedBox(width: 10),
-        Expanded(child: Text(quest.title)),
       ],
     ),
   );
