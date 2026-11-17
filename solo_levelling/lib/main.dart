@@ -12,6 +12,8 @@ import 'features/character/data/character_api.dart';
 import 'features/character/data/character_repository_impl.dart';
 import 'features/dashboard/data/dashboard_api.dart';
 import 'features/dashboard/data/dashboard_repository_impl.dart';
+import 'features/progression/data/progression_api.dart';
+import 'features/progression/data/progression_repository_impl.dart';
 
 void main() {
   AppConfig.validate();
@@ -27,11 +29,15 @@ void main() {
   final dashboardRepository = DashboardRepositoryImpl(
     api: DashboardApi(apiClient),
   );
+  final progressionRepository = ProgressionRepositoryImpl(
+    api: ProgressionApi(apiClient),
+  );
   runApp(
     SoloLevelingApp(
       authController: AuthController(authRepository),
       characterRepository: characterRepository,
       dashboardRepository: dashboardRepository,
+      progressionRepository: progressionRepository,
     ),
   );
 }

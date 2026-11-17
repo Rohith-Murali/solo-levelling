@@ -1,53 +1,165 @@
 part of 'dashboard_screen.dart';
 
 class _ActiveQuestsSection extends StatelessWidget {
-  const _ActiveQuestsSection({required this.quests});
+  const _ActiveQuestsSection({
+    required this.quests,
+    required this.skills,
+    required this.characterLevel,
+    required this.templates,
+    required this.onObjectiveComplete,
+    required this.onQuestComplete,
+    required this.onActivateTemplate,
+    required this.activatingTemplateIds,
+  });
 
-  final List<DashboardQuest> quests;
+  final List<ProgressionQuest> quests;
+  final List<DashboardSkill> skills;
+  final int characterLevel;
+  final List<QuestTemplate> templates;
+  final Future<void> Function(String questId, String objectiveId)
+  onObjectiveComplete;
+  final Future<void> Function(String questId) onQuestComplete;
+  final Future<void> Function(String templateId) onActivateTemplate;
+  final Set<String> activatingTemplateIds;
 
   @override
   Widget build(BuildContext context) {
+    final activeQuests = quests
+        .where((quest) => !quest.completed)
+        .toList(growable: false);
+    final mainQuests = activeQuests
+        .where((quest) => quest.type == 'MAIN')
+        .take(3)
+        .toList(growable: false);
+    final sideQuests = activeQuests
+        .where((quest) => quest.type != 'MAIN')
+        .take(3)
+        .toList(growable: false);
+    final reward = 100 + (50 * (characterLevel - 1));
+    String? skillName(ProgressionQuest quest) => skills
+        .where((skill) => skill.id == quest.primarySkillId)
+        .firstOrNull
+        ?.name;
+    Widget questColumn(String title, List<ProgressionQuest> items) => Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            color: AppColors.accent,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1,
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (items.isEmpty)
+          const _EmptySectionMessage(
+            icon: Icons.assignment_outlined,
+            title: 'No quests detected.',
+            detail: 'Activate a progression template to begin.',
+          )
+        else
+          for (final quest in items) ...[
+            _QuestCard(
+              quest: quest,
+              reward: reward,
+              skillName: skillName(quest),
+              onObjectiveComplete: onObjectiveComplete,
+              onQuestComplete: onQuestComplete,
+            ),
+            if (quest != items.last) const SizedBox(height: 10),
+          ],
+      ],
+    );
     return _DashboardSection(
       title: 'ACTIVE QUESTS',
-      trailing: '${quests.length}',
-      child: quests.isEmpty
-          ? const _EmptySectionMessage(
-              icon: Icons.assignment_outlined,
-              title: 'No active quests detected.',
-              detail: 'Active quests will appear here when quest tracking is available.',
-            )
-          : Column(
+      trailing: '${activeQuests.length} active',
+      child: activeQuests.isEmpty
+          ? Column(
               children: [
-                for (final quest in quests) ...[
-                  _QuestCard(quest: quest),
-                  if (quest != quests.last) const SizedBox(height: 10),
+                const _EmptySectionMessage(
+                  icon: Icons.assignment_outlined,
+                  title: 'No active quests detected.',
+                  detail: 'Activate a progression template to begin your next quest.',
+                ),
+                for (final template in templates) ...[
+                  _TemplateCard(
+                    template: template,
+                    onActivate: onActivateTemplate,
+                    isActivating: activatingTemplateIds.contains(template.id),
+                  ),
+                  if (template != templates.last) const SizedBox(height: 10),
                 ],
               ],
+            )
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                final main = questColumn('MAIN QUESTS', mainQuests);
+                final side = questColumn('SIDE QUESTS', sideQuests);
+                if (constraints.maxWidth < 680) {
+                  return Column(
+                    children: [main, const SizedBox(height: 18), side],
+                  );
+                }
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: main),
+                    const SizedBox(width: 16),
+                    SizedBox(width: 250, child: side),
+                  ],
+                );
+              },
             ),
     );
   }
 }
 
 class _QuestCard extends StatelessWidget {
-  const _QuestCard({required this.quest});
+  const _QuestCard({
+    required this.quest,
+    required this.reward,
+    required this.skillName,
+    required this.onObjectiveComplete,
+    required this.onQuestComplete,
+  });
 
-  final DashboardQuest quest;
+  final ProgressionQuest quest;
+  final int reward;
+  final String? skillName;
+  final Future<void> Function(String questId, String objectiveId)
+  onObjectiveComplete;
+  final Future<void> Function(String questId) onQuestComplete;
 
   @override
   Widget build(BuildContext context) {
-    final progress = quest.totalObjectives == 0
+    final completedObjectives = quest.objectives
+        .where((objective) => objective.completed)
+        .length;
+    final progress = quest.objectives.isEmpty
         ? 0.0
-        : (quest.completedObjectives / quest.totalObjectives)
+        : (completedObjectives / quest.objectives.length)
               .clamp(0.0, 1.0)
               .toDouble();
     final type = quest.type == 'MAIN' ? 'MAIN QUEST' : 'SIDE QUEST';
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: AppColors.background.withValues(alpha: 0.45),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xAA12345A), Color(0x66050B18)],
+        ),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.primaryGlow),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primaryGlow.withOpacity(.16),
+            blurRadius: 14,
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -70,48 +182,118 @@ class _QuestCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 5),
           Text(
             quest.title,
             style: Theme.of(context).textTheme.titleMedium
                 ?.copyWith(fontWeight: FontWeight.w700),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 7),
           LinearProgressIndicator(
             value: progress,
-            minHeight: 5,
+            minHeight: 4,
             backgroundColor: AppColors.surfaceElevated,
             color: AppColors.primaryGlow,
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Text(
-            '${quest.completedObjectives} / ${quest.totalObjectives} objectives',
+            '$completedObjectives / ${quest.objectives.length} objectives',
             style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 12,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           Wrap(
             spacing: 12,
             runSpacing: 4,
             children: [
-              _RewardLabel(
-                icon: Icons.bolt,
-                text: '+${quest.characterXpReward} XP',
-              ),
-              if (quest.primarySkillName != null)
-                _RewardLabel(
-                  icon: Icons.auto_awesome,
-                  text:
-                      '${quest.primarySkillName} +${quest.skillXpReward ?? 0} XP',
-                ),
+              _RewardLabel(icon: Icons.bolt, text: '+$reward XP'),
+              if (skillName != null)
+                _RewardLabel(icon: Icons.auto_awesome, text: skillName!),
             ],
           ),
+          if (quest.objectives.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            for (final objective in quest.objectives)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: objective.completed
+                      ? null
+                      : () => onObjectiveComplete(quest.id, objective.id),
+                  child: Text(
+                    '${objective.completed ? '✓' : '○'} ${objective.title}',
+                  ),
+                ),
+              ),
+          ],
+          if (quest.objectives.every((objective) => objective.completed))
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton(
+                onPressed: () => onQuestComplete(quest.id),
+                child: const Text('Complete quest'),
+              ),
+            ),
         ],
       ),
     );
   }
+}
+
+class _TemplateCard extends StatelessWidget {
+  const _TemplateCard({
+    required this.template,
+    required this.onActivate,
+    required this.isActivating,
+  });
+  final QuestTemplate template;
+  final Future<void> Function(String templateId) onActivate;
+  final bool isActivating;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: AppColors.background.withValues(alpha: 0.45),
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: AppColors.border),
+    ),
+    child: Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                template.name,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                '${template.questCount} quests · ${template.milestoneCount} milestones',
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+        OutlinedButton(
+          onPressed: isActivating ? null : () => onActivate(template.id),
+          child: isActivating
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Activate'),
+        ),
+      ],
+    ),
+  );
 }
 
 class _AcquiredSkillsSection extends StatelessWidget {

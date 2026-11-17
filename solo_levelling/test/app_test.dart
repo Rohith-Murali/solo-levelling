@@ -14,6 +14,8 @@ import 'package:solo_levelling/features/character/domain/character_options.dart'
 import 'package:solo_levelling/features/character/domain/character_repository.dart';
 import 'package:solo_levelling/features/dashboard/domain/dashboard_data.dart';
 import 'package:solo_levelling/features/dashboard/domain/dashboard_repository.dart';
+import 'package:solo_levelling/features/progression/domain/progression_data.dart';
+import 'package:solo_levelling/features/progression/domain/progression_repository.dart';
 
 void main() {
   test('resolves API paths below the configured base URI', () async {
@@ -202,8 +204,67 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('PLAYER STATUS'), findsOneWidget);
-    expect(find.text('Hunter'), findsOneWidget);
+    expect(find.text('Hunter'), findsNWidgets(2));
     expect(find.text('CHARACTER INITIALIZATION'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('primary navigation screens use the connected repositories', (
+    tester,
+  ) async {
+    final progressionRepository = _FakeProgressionRepository();
+    final controller = AuthController(_FakeAuthRepository());
+    await tester.pumpWidget(
+      SoloLevelingApp(
+        authController: controller,
+        characterRepository: _FakeCharacterRepository(),
+        dashboardRepository: _FakeDashboardRepository(),
+        progressionRepository: progressionRepository,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('login-email')),
+      'hunter@example.com',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('login-password')),
+      'password123',
+    );
+    await tester.tap(find.text('Sign in'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Quests'));
+    await tester.pumpAndSettle();
+    expect(find.text('QUEST CENTER'), findsOneWidget);
+    expect(find.text('Body'), findsOneWidget);
+
+    await tester.tap(find.text('Activate'));
+    await tester.pumpAndSettle();
+    expect(progressionRepository.activationCount, 1);
+    expect(find.text('Begin Body'), findsOneWidget);
+    await tester.tap(find.text('Complete quest'));
+    await tester.pumpAndSettle();
+    expect(find.text('COMPLETED QUESTS'), findsNothing);
+
+    await tester.tap(find.text('Skills'));
+    await tester.pumpAndSettle();
+    expect(find.text('SKILL LIBRARY'), findsOneWidget);
+    expect(find.text('Focus'), findsOneWidget);
+
+    await tester.tap(find.text('Character'));
+    await tester.pumpAndSettle();
+    expect(find.text('CHARACTER STATUS'), findsOneWidget);
+
+    await tester.tap(find.text('History'));
+    await tester.pumpAndSettle();
+    expect(find.text('HISTORY & ANALYTICS'), findsOneWidget);
+    expect(find.text('COMPLETED QUESTS'), findsOneWidget);
+    expect(find.text('Begin Body'), findsOneWidget);
+
+    await tester.tap(find.text('Dashboard'));
+    await tester.pumpAndSettle();
+    expect(find.text('Begin Body'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }
@@ -325,4 +386,91 @@ class _FakeDashboardRepository implements DashboardRepository {
       recentActivity: [],
     );
   }
+}
+
+class _FakeProgressionRepository implements ProgressionRepository {
+  int activationCount = 0;
+  List<ProgressionQuest> quests = const [];
+
+  @override
+  Future<List<ProgressionQuest>> loadQuests(String accessToken) async => quests;
+
+  @override
+  Future<List<QuestTemplate>> loadTemplates(String accessToken) async => const [
+    QuestTemplate(
+      id: 'body',
+      name: 'Body',
+      description: 'Build physical health.',
+      minimumLevel: 1,
+      milestoneCount: 3,
+      questCount: 9,
+    ),
+  ];
+
+  @override
+  Future<void> activateTemplate(String accessToken, String templateId) async {
+    activationCount++;
+    quests = const [
+      ProgressionQuest(
+        id: 'quest-body-1',
+        title: 'Begin Body',
+        description: 'Start.',
+        type: 'MAIN',
+        difficulty: 'EASY',
+        primarySkillId: 'fitness',
+        objectives: [],
+        completed: false,
+        sourceTemplateId: 'body',
+      ),
+    ];
+  }
+
+  @override
+  Future<void> completeObjective(
+    String accessToken,
+    String questId,
+    String objectiveId,
+  ) async {}
+
+  @override
+  Future<void> completeQuest(String accessToken, String questId) async {
+    quests = quests
+        .map(
+          (quest) => quest.id == questId
+              ? ProgressionQuest(
+                  id: quest.id,
+                  title: quest.title,
+                  description: quest.description,
+                  type: quest.type,
+                  difficulty: quest.difficulty,
+                  primarySkillId: quest.primarySkillId,
+                  objectives: quest.objectives,
+                  completed: true,
+                  sourceTemplateId: quest.sourceTemplateId,
+                )
+              : quest,
+        )
+        .toList(growable: false);
+  }
+
+  @override
+  Future<List<LibrarySkill>> loadSkillLibrary(
+    String accessToken,
+  ) async => const [
+    LibrarySkill(id: 'focus', name: 'Focus', description: 'Train attention.'),
+    LibrarySkill(
+      id: 'fitness',
+      name: 'Fitness',
+      description: 'Build physical health.',
+    ),
+  ];
+
+  @override
+  Future<void> acquireSkill(
+    String accessToken, {
+    String? skillId,
+    String? name,
+    String? description,
+    String? category,
+  }) async {}
 }

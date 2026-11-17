@@ -1,10 +1,13 @@
 import 'package:material_ui/material_ui.dart';
 
-import '../../../app/theme/app_colors.dart';
-import '../../../core/navigation/navigation_config.dart';
 import '../../../features/dashboard/domain/dashboard_data.dart';
 import '../../../features/dashboard/domain/dashboard_repository.dart';
+import '../../../features/dashboard/presentation/character_status_screen.dart';
 import '../../../features/dashboard/presentation/dashboard_screen.dart';
+import '../../../features/dashboard/presentation/activity_log_screen.dart';
+import '../../../features/progression/presentation/quest_center_screen.dart';
+import '../../../features/progression/presentation/skill_library_screen.dart';
+import '../../../features/progression/domain/progression_repository.dart';
 import 'system_bottom_nav.dart';
 import 'system_drawer.dart';
 import 'system_top_bar.dart';
@@ -15,12 +18,14 @@ class MainShell extends StatefulWidget {
     required this.accessToken,
     required this.onLogout,
     required this.onCharacterRequired,
+    this.progressionRepository,
     super.key,
   });
   final DashboardRepository repository;
   final String? accessToken;
   final VoidCallback onLogout;
   final VoidCallback onCharacterRequired;
+  final ProgressionRepository? progressionRepository;
 
   @override
   State<MainShell> createState() => _MainShellState();
@@ -28,10 +33,21 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _selectedIndex = 0;
+  int _dashboardRevision = 0;
+  final Set<int> _visitedTabs = <int>{0};
   DashboardCharacter? _character;
 
   void _select(int index) {
-    if (index != _selectedIndex) setState(() => _selectedIndex = index);
+    if (index != _selectedIndex) {
+      setState(() {
+        _selectedIndex = index;
+        _visitedTabs.add(index);
+      });
+    }
+  }
+
+  void _refreshDashboard() {
+    setState(() => _dashboardRevision++);
   }
 
   @override
@@ -50,15 +66,55 @@ class _MainShellState extends State<MainShell> {
     body: IndexedStack(
       index: _selectedIndex,
       children: [
-        DashboardScreen(
-          repository: widget.repository,
-          accessToken: widget.accessToken,
-          onCharacterRequired: widget.onCharacterRequired,
-          onCharacterLoaded: (character) =>
-              setState(() => _character = character),
-        ),
-        for (final destination in primaryDestinations.skip(1))
-          _PlaceholderPage(title: destination.label, icon: destination.icon),
+        if (_visitedTabs.contains(0))
+          DashboardScreen(
+            key: ValueKey<int>(_dashboardRevision),
+            repository: widget.repository,
+            accessToken: widget.accessToken,
+            onCharacterRequired: widget.onCharacterRequired,
+            onViewActivity: () => _select(4),
+            progressionRepository: widget.progressionRepository,
+            onCharacterLoaded: (character) =>
+                setState(() => _character = character),
+          )
+        else
+          const SizedBox.shrink(),
+        if (_visitedTabs.contains(1))
+          QuestCenterScreen(
+            repository: widget.progressionRepository,
+            dashboardRepository: widget.repository,
+            accessToken: widget.accessToken,
+            isActive: _selectedIndex == 1,
+            onDataChanged: _refreshDashboard,
+          )
+        else
+          const SizedBox.shrink(),
+        if (_visitedTabs.contains(2))
+          SkillLibraryScreen(
+            dashboardRepository: widget.repository,
+            progressionRepository: widget.progressionRepository,
+            accessToken: widget.accessToken,
+            isActive: _selectedIndex == 2,
+            onDataChanged: _refreshDashboard,
+          )
+        else
+          const SizedBox.shrink(),
+        if (_visitedTabs.contains(3))
+          CharacterStatusScreen(
+            repository: widget.repository,
+            accessToken: widget.accessToken,
+            isActive: _selectedIndex == 3,
+          )
+        else
+          const SizedBox.shrink(),
+        if (_visitedTabs.contains(4))
+          ActivityLogScreen(
+            repository: widget.repository,
+            accessToken: widget.accessToken,
+            isActive: _selectedIndex == 4,
+          )
+        else
+          const SizedBox.shrink(),
       ],
     ),
     bottomNavigationBar: SystemBottomNav(
@@ -68,17 +124,13 @@ class _MainShellState extends State<MainShell> {
   );
 
   void _showSecondary(String label) => Navigator.of(context).push(
-    MaterialPageRoute<void>(
-      builder: (_) =>
-          _PlaceholderPage(title: label, icon: Icons.settings_outlined),
-    ),
+    MaterialPageRoute<void>(builder: (_) => _SystemInfoPage(title: label)),
   );
 }
 
-class _PlaceholderPage extends StatelessWidget {
-  const _PlaceholderPage({required this.title, required this.icon});
+class _SystemInfoPage extends StatelessWidget {
+  const _SystemInfoPage({required this.title});
   final String title;
-  final IconData icon;
 
   @override
   Widget build(BuildContext context) => Center(
@@ -87,21 +139,11 @@ class _PlaceholderPage extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: AppColors.accent, size: 48),
-          const SizedBox(height: 18),
-          Text(
-            title.toUpperCase(),
-            style: const TextStyle(
-              color: AppColors.accent,
-              letterSpacing: 1.5,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
+          Text(title),
           const SizedBox(height: 10),
           const Text(
-            'This system module is ready for its feature implementation.',
+            'This system module is not connected yet.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: AppColors.textSecondary),
           ),
         ],
       ),

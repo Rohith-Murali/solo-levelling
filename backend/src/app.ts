@@ -10,6 +10,8 @@ import { createDashboardRouter } from "./routes/dashboard.routes.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { notFoundHandler } from "./middleware/not-found.js";
 import { healthRouter } from "./routes/health.routes.js";
+import { createQuestRouter } from "./routes/quest.routes.js";
+import { createSkillRouter } from "./routes/skill.routes.js";
 
 type AppConfig = {
   NODE_ENV: "development" | "test" | "production";
@@ -82,6 +84,8 @@ export function createApp(config: AppConfig) {
   app.use("/api/auth", createAuthRouter(config.JWT_SECRET));
   app.use("/api/characters", createCharacterRouter(config.JWT_SECRET));
   app.use("/api/dashboard", createDashboardRouter(config.JWT_SECRET));
+  app.use("/api/quests", createQuestRouter(config.JWT_SECRET));
+  app.use("/api/skills", createSkillRouter(config.JWT_SECRET));
   app.use(notFoundHandler);
   app.use(errorHandler);
 

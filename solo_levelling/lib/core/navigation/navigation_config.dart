@@ -43,8 +43,8 @@ const primaryDestinations = <NavigationDestinationConfig>[
   ),
   NavigationDestinationConfig(
     destination: PrimaryDestination.history,
-    label: 'History',
-    drawerLabel: 'History & Analytics',
+    label: 'Activity',
+    drawerLabel: 'Activity Log',
     icon: Icons.bar_chart,
   ),
 ];
