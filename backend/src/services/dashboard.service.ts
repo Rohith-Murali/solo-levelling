@@ -141,7 +141,6 @@ function toDashboard(character: CharacterRecord) {
     recentActivity: (character.progressionEvents ?? [])
       .slice()
       .sort((first, second) => second.occurredAt.getTime() - first.occurredAt.getTime())
-      .slice(0, 20)
       .map((event) => progressionActivity(character, event)),
   };
 }

@@ -107,9 +107,20 @@ class _CharacterStatusScreenState extends State<CharacterStatusScreen> {
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: AppColors.surface,
+                color: AppColors.surface.withOpacity(.88),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xAA12345A), Color(0x66050B18)],
+                ),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(color: AppColors.primaryGlow),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primaryGlow.withOpacity(.16),
+                    blurRadius: 18,
+                  ),
+                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -229,9 +240,14 @@ class _StatusStat extends StatelessWidget {
     width: 150,
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
-      color: AppColors.surface,
+      color: AppColors.surface.withOpacity(.88),
+      gradient: const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xAA12345A), Color(0x66050B18)],
+      ),
       borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: AppColors.border),
+      border: Border.all(color: AppColors.primaryGlow),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -265,9 +281,14 @@ class _StatusSkill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.surface.withOpacity(.88),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xAA12345A), Color(0x66050B18)],
+        ),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.primaryGlow),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

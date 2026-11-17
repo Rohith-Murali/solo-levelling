@@ -4,7 +4,7 @@ import '../../../features/dashboard/domain/dashboard_data.dart';
 import '../../../features/dashboard/domain/dashboard_repository.dart';
 import '../../../features/dashboard/presentation/character_status_screen.dart';
 import '../../../features/dashboard/presentation/dashboard_screen.dart';
-import '../../../features/dashboard/presentation/progression_history_screen.dart';
+import '../../../features/dashboard/presentation/activity_log_screen.dart';
 import '../../../features/progression/presentation/quest_center_screen.dart';
 import '../../../features/progression/presentation/skill_library_screen.dart';
 import '../../../features/progression/domain/progression_repository.dart';
@@ -72,6 +72,7 @@ class _MainShellState extends State<MainShell> {
             repository: widget.repository,
             accessToken: widget.accessToken,
             onCharacterRequired: widget.onCharacterRequired,
+            onViewActivity: () => _select(4),
             progressionRepository: widget.progressionRepository,
             onCharacterLoaded: (character) =>
                 setState(() => _character = character),
@@ -107,9 +108,8 @@ class _MainShellState extends State<MainShell> {
         else
           const SizedBox.shrink(),
         if (_visitedTabs.contains(4))
-          ProgressionHistoryScreen(
+          ActivityLogScreen(
             repository: widget.repository,
-            progressionRepository: widget.progressionRepository,
             accessToken: widget.accessToken,
             isActive: _selectedIndex == 4,
           )

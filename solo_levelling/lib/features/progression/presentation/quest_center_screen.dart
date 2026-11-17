@@ -4,6 +4,7 @@ import '../../../app/theme/app_colors.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/network/api_client.dart';
 import '../../dashboard/domain/dashboard_repository.dart';
+import '../../dashboard/domain/dashboard_data.dart';
 import '../domain/progression_data.dart';
 import '../domain/progression_repository.dart';
 import '../../../shared/widgets/system_notification.dart';
@@ -31,6 +32,7 @@ class QuestCenterScreen extends StatefulWidget {
 class _QuestCenterScreenState extends State<QuestCenterScreen> {
   List<ProgressionQuest> _quests = const [];
   List<QuestTemplate> _templates = const [];
+  DashboardData? _dashboard;
   String? _errorMessage;
   bool _isLoading = true;
   bool _isMutating = false;
@@ -65,10 +67,12 @@ class _QuestCenterScreenState extends State<QuestCenterScreen> {
     try {
       final quests = await repository.loadQuests(token);
       final templates = await repository.loadTemplates(token);
+      final dashboard = await widget.dashboardRepository.load(token);
       if (!mounted) return;
       setState(() {
         _quests = quests;
         _templates = templates;
+        _dashboard = dashboard;
       });
     } on ApiException catch (error) {
       if (!mounted) return;
@@ -232,6 +236,15 @@ class _QuestCenterScreenState extends State<QuestCenterScreen> {
                       for (final quest in activeQuests) ...[
                         _QuestEntry(
                           quest: quest,
+                          reward:
+                              100 +
+                              (50 * ((_dashboard?.character.level ?? 1) - 1)),
+                          skillName: _dashboard?.skills
+                              .where(
+                                (skill) => skill.id == quest.primarySkillId,
+                              )
+                              .firstOrNull
+                              ?.name,
                           isMutating: _isMutating,
                           onCompleteObjective: _completeObjective,
                           onCompleteQuest: _completeQuest,
@@ -305,11 +318,15 @@ class _QuestEmptyMessage extends StatelessWidget {
 class _QuestEntry extends StatelessWidget {
   const _QuestEntry({
     required this.quest,
+    required this.reward,
+    required this.skillName,
     required this.isMutating,
     required this.onCompleteObjective,
     required this.onCompleteQuest,
   });
   final ProgressionQuest quest;
+  final int reward;
+  final String? skillName;
   final bool isMutating;
   final Future<void> Function(String, String) onCompleteObjective;
   final Future<void> Function(String) onCompleteQuest;
@@ -327,9 +344,31 @@ class _QuestEntry extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Row(
+            children: [
+              Text(
+                quest.type == 'MAIN' ? 'MAIN QUEST' : 'SIDE QUEST',
+                style: const TextStyle(
+                  color: AppColors.accent,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                quest.difficulty,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
           Text(
             quest.title,
-            style: const TextStyle(fontWeight: FontWeight.w700),
+            style: const TextStyle(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 4),
           Text(
@@ -338,6 +377,15 @@ class _QuestEntry extends StatelessWidget {
               color: AppColors.textSecondary,
               fontSize: 12,
             ),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 10,
+            children: [
+              _QuestMeta(icon: Icons.bolt, label: '+$reward XP'),
+              if (skillName != null)
+                _QuestMeta(icon: Icons.auto_awesome, label: skillName!),
+            ],
           ),
           if (quest.objectives.isNotEmpty) ...[
             const SizedBox(height: 8),
@@ -425,13 +473,48 @@ class _QuestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(14),
+    padding: const EdgeInsets.all(10),
     decoration: BoxDecoration(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: AppColors.border),
+      color: AppColors.surface.withOpacity(.88),
+      gradient: const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xAA12345A), Color(0x66050B18)],
+      ),
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: AppColors.primaryGlow),
+      boxShadow: [
+        BoxShadow(
+          color: AppColors.primaryGlow.withOpacity(.14),
+          blurRadius: 14,
+        ),
+      ],
     ),
     child: child,
+  );
+}
+
+class _QuestMeta extends StatelessWidget {
+  const _QuestMeta({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(icon, size: 14, color: AppColors.accent),
+      const SizedBox(width: 3),
+      Text(
+        label,
+        style: const TextStyle(
+          color: AppColors.accent,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    ],
   );
 }
 

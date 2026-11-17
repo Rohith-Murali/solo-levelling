@@ -187,15 +187,17 @@ class _XpTrendChart extends StatelessWidget {
 }
 
 class _RecentActivitySection extends StatelessWidget {
-  const _RecentActivitySection({required this.activities});
+  const _RecentActivitySection({required this.activities, this.onViewAll});
 
   final List<DashboardActivity> activities;
+  final VoidCallback? onViewAll;
 
   @override
   Widget build(BuildContext context) {
+    final recent = activities.take(4).toList(growable: false);
     return _DashboardSection(
       title: 'RECENT ACTIVITY',
-      trailing: '${activities.length}',
+      trailing: 'ACTIVITY LOG',
       child: activities.isEmpty
           ? const _EmptySectionMessage(
               icon: Icons.history,
@@ -205,10 +207,19 @@ class _RecentActivitySection extends StatelessWidget {
             )
           : Column(
               children: [
-                for (var index = 0; index < activities.length; index++) ...[
-                  _ActivityItem(activity: activities[index]),
-                  if (index < activities.length - 1) const Divider(height: 18),
+                for (var index = 0; index < recent.length; index++) ...[
+                  _ActivityItem(activity: recent[index]),
+                  if (index < recent.length - 1) const Divider(height: 18),
                 ],
+                if (onViewAll != null)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: onViewAll,
+                      icon: const Icon(Icons.open_in_new, size: 16),
+                      label: const Text('VIEW ALL'),
+                    ),
+                  ),
               ],
             ),
     );
@@ -311,9 +322,21 @@ class _DashboardSection extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: AppColors.surface.withOpacity(.88),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [AppColors.surfaceElevated, AppColors.surface],
+              ),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: AppColors.primaryGlow.withOpacity(.52)),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primaryGlow.withOpacity(.11),
+                  blurRadius: 18,
+                  spreadRadius: 1,
+                ),
+              ],
             ),
             child: child,
           ),

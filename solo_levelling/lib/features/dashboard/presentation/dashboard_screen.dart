@@ -20,6 +20,7 @@ class DashboardScreen extends StatefulWidget {
     required this.accessToken,
     required this.onCharacterRequired,
     this.onCharacterLoaded,
+    this.onViewActivity,
     this.progressionRepository,
     super.key,
   });
@@ -28,6 +29,7 @@ class DashboardScreen extends StatefulWidget {
   final String? accessToken;
   final VoidCallback onCharacterRequired;
   final ValueChanged<DashboardCharacter>? onCharacterLoaded;
+  final VoidCallback? onViewActivity;
   final ProgressionRepository? progressionRepository;
 
   @override
@@ -158,6 +160,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const SizedBox(height: 22),
                 _ActiveQuestsSection(
                   quests: _quests ?? const [],
+                  skills: data.skills,
+                  characterLevel: data.character.level,
                   templates: _templates ?? const [],
                   onObjectiveComplete: _completeObjective,
                   onQuestComplete: _completeQuest,
@@ -172,7 +176,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   overview: data.progressionOverview,
                 ),
                 const SizedBox(height: 22),
-                _RecentActivitySection(activities: data.recentActivity),
+                _RecentActivitySection(
+                  activities: data.recentActivity,
+                  onViewAll: widget.onViewActivity,
+                ),
               ],
             ],
           ),
