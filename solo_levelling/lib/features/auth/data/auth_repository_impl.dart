@@ -32,24 +32,50 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<AuthUser?> restoreSession() async {
-    final refreshToken = await tokenStorage.read();
-    if (refreshToken == null) {
+    final storedRefreshToken = await tokenStorage.read();
+    if (storedRefreshToken == null) {
       return null;
     }
+    var refreshToken = storedRefreshToken;
 
-    try {
-      final session = await api.refresh(refreshToken);
-      await tokenStorage.write(session.refreshToken);
-      _accessToken = session.accessToken;
-      return await api.getCurrentUser(session.accessToken);
-    } on ApiException catch (error) {
-      if (error.statusCode == 401) {
-        _accessToken = null;
-        await tokenStorage.clear();
-        return null;
+    ApiException? lastTransientError;
+    AuthSession? session;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        session ??= await api.refresh(refreshToken);
+        if (_accessToken != session.accessToken) {
+          await tokenStorage.write(session.refreshToken);
+          _accessToken = session.accessToken;
+        }
+        return await api.getCurrentUser(session.accessToken);
+      } on ApiException catch (error) {
+        if (error.statusCode == 401) {
+          // Another app instance may have rotated the token while this
+          // startup was restoring its session. Prefer the newer persisted
+          // token before treating the session as invalid.
+          final latestToken = await tokenStorage.read();
+          if (latestToken != null && latestToken != refreshToken) {
+            refreshToken = latestToken;
+            session = null;
+            continue;
+          }
+          _accessToken = null;
+          await tokenStorage.clear();
+          return null;
+        }
+
+        final isTransient =
+            error.statusCode == null || error.statusCode! >= 500;
+        if (!isTransient || attempt == 2) {
+          rethrow;
+        }
+        lastTransientError = error;
+        await Future<void>.delayed(Duration(milliseconds: 400 * (attempt + 1)));
       }
-      rethrow;
     }
+
+    throw lastTransientError ??
+        const ApiException('Unable to restore your session.');
   }
 
   @override

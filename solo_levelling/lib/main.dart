@@ -16,8 +16,11 @@ import 'features/progression/data/progression_api.dart';
 import 'features/progression/data/progression_repository_impl.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   AppConfig.validate();
-  const secureStorage = FlutterSecureStorage();
+  const secureStorage = FlutterSecureStorage(
+    wOptions: WindowsOptions(useBackwardCompatibility: true),
+  );
   final apiClient = ApiClient();
   final authRepository = AuthRepositoryImpl(
     api: AuthApi(apiClient),
