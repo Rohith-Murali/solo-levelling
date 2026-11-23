@@ -10,6 +10,24 @@ abstract interface class ProgressionRepository {
     String objectiveId,
   );
   Future<void> completeQuest(String accessToken, String questId);
+  Future<void> createGoal(
+    String accessToken, {
+    required String title,
+    required String description,
+    String? primarySkillId,
+    String? skillName,
+    List<Map<String, Object?>> milestones,
+  });
+  Future<void> createSideQuest(
+    String accessToken, {
+    required String title,
+    required String description,
+    required String difficulty,
+    String? primarySkillId,
+    String? skillName,
+    List<String> objectives,
+    List<String> statContributions,
+  });
   Future<List<LibrarySkill>> loadSkillLibrary(String accessToken);
   Future<void> acquireSkill(
     String accessToken, {

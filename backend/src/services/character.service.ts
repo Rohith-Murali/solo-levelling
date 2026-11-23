@@ -28,6 +28,7 @@ export function createCharacterService() {
           level: initialProgression.skillLevel,
           xp: initialProgression.skillXp,
         },
+      stats: { strength: 1, intelligence: 1, vitality: 1, discipline: 1, perception: 1 },
       title: "Shadow Initiate",
       titleHistory: ["Shadow Initiate"],
       totalXp: initialProgression.xp,

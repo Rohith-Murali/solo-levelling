@@ -30,6 +30,50 @@ export class ProgressionEngine {
     return this.processCompletion(state, { questId: relatedEntityId, ...(primarySkillId ? { primarySkillId } : {}) }, xp, now);
   }
 
+  awardCharacterXp(
+    state: ProgressionState,
+    xp: number,
+    relatedEntityId: string,
+    eventType: "MILESTONE_COMPLETED" | "GOAL_COMPLETED",
+    now = new Date(),
+  ): ProgressionResult {
+    if (!Number.isInteger(xp) || xp < 0) throw new Error("XP award must be a non-negative integer.");
+    if (xp === 0) return this.result(state, { questId: relatedEntityId }, 0, 0, [], [state.rank, state.rank], [state.title, state.title], [], 0, [], false, now);
+
+    const character = {
+      ...this.advance(state.level, state.xp + xp),
+      totalXp: state.totalXp + xp,
+    };
+    const previousRank = state.rank;
+    const previousTitle = state.title;
+    const currentRank = resolveRank(character.level, this.config);
+    const currentTitle = resolveTitle(currentRank, this.config);
+    const levelUps = Array.from({ length: character.level - state.level }, (_, index) => state.level + index + 1);
+    const events: ProgressionEvent[] = [];
+    const event = (type: ProgressionEvent["type"], values: Partial<ProgressionEvent> = {}) => events.push({
+      id: randomUUID(),
+      characterId: state.characterId,
+      type,
+      occurredAt: now,
+      ...values,
+    });
+    event("CHARACTER_XP_GAINED", { relatedEntityId, xpChange: xp, previousValue: state.totalXp, newValue: character.totalXp });
+    levelUps.forEach((level) => event("CHARACTER_LEVEL_INCREASED", { relatedEntityId, previousValue: level - 1, newValue: level }));
+    if (currentRank !== previousRank) event("RANK_PROMOTED", { relatedEntityId, previousValue: previousRank, newValue: currentRank });
+    const newlyUnlockedTitles = currentTitle === previousTitle ? [] : [currentTitle];
+    newlyUnlockedTitles.forEach((title) => event("TITLE_UNLOCKED", { relatedEntityId, previousValue: previousTitle, newValue: title }));
+    event(eventType, { relatedEntityId });
+
+    const nextState: ProgressionState = {
+      ...state,
+      ...character,
+      rank: currentRank,
+      title: currentTitle,
+      titleHistory: newlyUnlockedTitles.length ? [...state.titleHistory, currentTitle] : state.titleHistory,
+    };
+    return this.result(nextState, { questId: relatedEntityId }, xp, 0, levelUps, [previousRank, currentRank], [previousTitle, currentTitle], newlyUnlockedTitles, 0, events, false, now);
+  }
+
   private processCompletion(state: ProgressionState, quest: QuestCompletion, characterXpGained: number, now: Date): ProgressionResult {
     if (state.completedQuestIds.has(quest.questId)) return this.result(state, quest, 0, 0, [], [], [], [], 0, [], true, now);
     const required = quest.requiredObjectiveCount ?? 0;

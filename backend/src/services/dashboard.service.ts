@@ -120,6 +120,7 @@ function toDashboard(character: CharacterRecord) {
       totalXp,
       ...characterProgress,
       skillUnlockTokens: character.skillUnlockTokens,
+      stats: character.stats ?? { strength: 1, intelligence: 1, vitality: 1, discipline: 1, perception: 1 },
     },
     statistics: {
       completedQuestCount: character.quests?.filter((quest) => quest.completed).length ?? 0,

@@ -35,6 +35,32 @@ export function createQuestController(service: QuestService) {
       response
         .status(200)
         .json({ data: await service.list(identity(request)) }),
+    createGoal: async (request: Request, response: Response) =>
+      response.status(201).json({
+        data: await service.createGoal(identity(request), request.body),
+      }),
+    createMilestone: async (
+      request: Request<{ goalId: string }>,
+      response: Response,
+    ) =>
+      response.status(201).json({
+        data: await service.createMilestone(
+          identity(request),
+          request.params.goalId,
+          request.body,
+        ),
+      }),
+    createSideQuest: async (request: Request, response: Response) =>
+      response.status(201).json({
+        data: { quest: await service.createSideQuest(identity(request), request.body) },
+      }),
+    archiveGoal: async (
+      request: Request<{ goalId: string }>,
+      response: Response,
+    ) =>
+      response.status(200).json({
+        data: { goal: await service.archiveGoal(identity(request), request.params.goalId) },
+      }),
     completeObjective: async (
       request: Request<{ questId: string; objectiveId: string }>,
       response: Response,

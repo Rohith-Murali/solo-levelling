@@ -22,6 +22,14 @@ export interface ObjectiveRecord {
   completed: boolean;
 }
 
+export type CharacterStats = {
+  strength: number;
+  intelligence: number;
+  vitality: number;
+  discipline: number;
+  perception: number;
+};
+
 export interface QuestRecord {
   id: string;
   title: string;
@@ -29,6 +37,9 @@ export interface QuestRecord {
   type: "MAIN" | "SIDE";
   difficulty: string;
   primarySkillId?: string;
+  goalId?: string;
+  milestoneId?: string;
+  statContributions: (keyof CharacterStats)[];
   objectives: ObjectiveRecord[];
   completed: boolean;
   completedAt?: Date;
@@ -38,16 +49,23 @@ export interface QuestRecord {
 export interface MilestoneRecord {
   id: string;
   title: string;
+  description: string;
   questIds: string[];
   completed: boolean;
+  completedAt?: Date;
 }
 
 export interface GoalRecord {
   id: string;
   title: string;
   description: string;
+  primarySkillId: string;
   milestoneIds: string[];
   completed: boolean;
+  status: "ACTIVE" | "COMPLETED" | "ARCHIVED";
+  createdAt: Date;
+  completedAt?: Date;
+  archivedAt?: Date;
 }
 
 export interface ProgressionEventRecord {
@@ -70,6 +88,7 @@ export interface CharacterRecord {
   rank: string;
   skillUnlockTokens: number;
   startingSkill: StartingSkillRecord;
+  stats: CharacterStats;
   title: string;
   titleHistory: string[];
   totalXp: number;
@@ -125,6 +144,9 @@ const questSchema = new Schema<QuestRecord>({
   type: { type: String, enum: ["MAIN", "SIDE"], required: true },
   difficulty: { type: String, required: true },
   primarySkillId: { type: String, required: false },
+  goalId: { type: String, required: false },
+  milestoneId: { type: String, required: false },
+  statContributions: { type: [String], enum: ["strength", "intelligence", "vitality", "discipline", "perception"], required: true, default: [] },
   objectives: { type: [objectiveSchema], required: true },
   completed: { type: Boolean, required: true },
   completedAt: { type: Date, required: false },
@@ -134,16 +156,23 @@ const questSchema = new Schema<QuestRecord>({
 const milestoneSchema = new Schema<MilestoneRecord>({
   id: { type: String, required: true },
   title: { type: String, required: true },
+  description: { type: String, required: true, default: "" },
   questIds: { type: [String], required: true },
   completed: { type: Boolean, required: true },
+  completedAt: { type: Date, required: false },
 }, { _id: false });
 
 const goalSchema = new Schema<GoalRecord>({
   id: { type: String, required: true },
   title: { type: String, required: true },
   description: { type: String, required: true },
+  primarySkillId: { type: String, required: true, default: "" },
   milestoneIds: { type: [String], required: true },
   completed: { type: Boolean, required: true },
+  status: { type: String, enum: ["ACTIVE", "COMPLETED", "ARCHIVED"], required: true, default: "ACTIVE" },
+  createdAt: { type: Date, required: true, default: Date.now },
+  completedAt: { type: Date, required: false },
+  archivedAt: { type: Date, required: false },
 }, { _id: false });
 
 const progressionEventSchema = new Schema<ProgressionEventRecord>({
@@ -167,6 +196,17 @@ const characterSchema = new Schema<CharacterRecord>(
     rank: { type: String, required: true },
     skillUnlockTokens: { type: Number, required: true },
     startingSkill: { type: startingSkillSchema, required: true },
+    stats: {
+      type: new Schema({
+        strength: { type: Number, required: true, default: 1 },
+        intelligence: { type: Number, required: true, default: 1 },
+        vitality: { type: Number, required: true, default: 1 },
+        discipline: { type: Number, required: true, default: 1 },
+        perception: { type: Number, required: true, default: 1 },
+      }, { _id: false }),
+      required: true,
+      default: { strength: 1, intelligence: 1, vitality: 1, discipline: 1, perception: 1 },
+    },
     title: { type: String, required: true, default: "Shadow Initiate" },
     titleHistory: { type: [String], required: true, default: ["Shadow Initiate"] },
     totalXp: { type: Number, required: true, default: 0 },

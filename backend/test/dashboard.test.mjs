@@ -68,6 +68,13 @@ test("dashboard returns persisted character data and honest empty-history state"
       currentLevelXp: 0,
       xpToNextLevel: 150,
       skillUnlockTokens: 3,
+      stats: {
+        strength: 1,
+        intelligence: 1,
+        vitality: 1,
+        discipline: 1,
+        perception: 1,
+      },
     });
     assert.equal(response.body.data.skills[0].name, "Focus");
     assert.equal(response.body.data.skills[0].currentLevelXp, 12);

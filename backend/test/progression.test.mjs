@@ -180,7 +180,9 @@ test("repeated activation acquires a missing template skill without duplicating 
       select: async () => ({ character }),
     });
     User.findOneAndUpdate = async (_filter, update) => {
-      character = update.$set.character;
+      if (update.$set.character) {
+        character = update.$set.character;
+      }
       return { character };
     };
 
@@ -290,6 +292,120 @@ test("legacy version zero updates also match records without a stored version", 
   });
 });
 
+test("custom side quest normalizes legacy starting skill and completes with stats", async () => {
+  const originalFindById = User.findById;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const now = new Date();
+  let character = createCharacterRecord({
+    createdAt: now,
+    updatedAt: now,
+    skills: [],
+  });
+
+  try {
+    User.findById = () => ({
+      select: async () => ({ character }),
+    });
+    User.findOneAndUpdate = async (_filter, update) => {
+      if (update.$set.character) {
+        character = update.$set.character;
+      }
+      return { character };
+    };
+
+    const service = createQuestService();
+    const quest = await service.createSideQuest("user-1", {
+      title: "Practice chess",
+      description: "Solve a tactical puzzle.",
+      difficulty: "HARD",
+      skillName: "Chess",
+      objectives: ["Solve a puzzle"],
+      statContributions: ["intelligence", "perception"],
+    });
+
+    const objective = quest.objectives[0];
+    await service.completeObjective("user-1", quest.id, objective.id);
+    const completion = await service.complete("user-1", quest.id);
+
+    assert.equal(completion.alreadyCompleted, false);
+    assert.equal(character.stats.intelligence, 4);
+    assert.equal(character.stats.perception, 4);
+    assert.equal(character.quests.find((item) => item.id === quest.id).completed, true);
+    assert.equal(
+      character.skills.every((item) =>
+        item.description !== undefined &&
+        item.category !== undefined &&
+        item.totalXp !== undefined &&
+        item.acquiredAt !== undefined &&
+        item.status !== undefined
+      ),
+      true,
+    );
+  } finally {
+    User.findById = originalFindById;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+});
+
+test("quest completion backfills legacy goal and milestone fields", async () => {
+  const originalFindById = User.findById;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const now = new Date();
+  const quest = {
+    id: "legacy-quest",
+    title: "Complete foundation",
+    description: "Complete the foundation.",
+    type: "MAIN",
+    difficulty: "EASY",
+    primarySkillId: "focus",
+    objectives: [],
+    completed: false,
+  };
+  let character = createCharacterRecord({
+    quests: [quest],
+    milestones: [{
+      id: "legacy-milestone",
+      title: "Foundation",
+      description: "",
+      questIds: [quest.id],
+      completed: false,
+    }],
+    goals: [{
+      id: "legacy-goal",
+      title: "Build focus",
+      description: "Build focus consistently.",
+      milestoneIds: ["legacy-milestone"],
+      completed: false,
+    }],
+  });
+
+  try {
+    User.findById = () => ({
+      select: async () => ({ character }),
+    });
+    User.findOneAndUpdate = async (_filter, update) => {
+      await new User({
+        email: "hunter@example.com",
+        passwordHash: "test",
+        character: update.$set.character,
+      }).validate();
+      character = update.$set.character;
+      return { character };
+    };
+
+    await createQuestService().complete("user-1", quest.id);
+
+    assert.equal(character.milestones[0].description, "Foundation");
+    assert.equal(character.goals[0].primarySkillId, "focus");
+    assert.equal(character.goals[0].status, "COMPLETED");
+    assert.equal(character.goals[0].completed, true);
+    assert.ok(character.goals[0].createdAt instanceof Date);
+  } finally {
+    User.findById = originalFindById;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+});
+
 test("template activation grants its skill and quests award both XP types", async () => {
   const originalFindById = User.findById;
   const originalFindOneAndUpdate = User.findOneAndUpdate;
@@ -347,4 +463,3 @@ test("template activation grants its skill and quests award both XP types", asyn
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 });
-
