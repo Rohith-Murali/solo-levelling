@@ -184,6 +184,14 @@ class _CharacterStatusScreenState extends State<CharacterStatusScreen> {
             ),
             const SizedBox(height: 18),
             Text(
+              'CHARACTER STATS',
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(color: AppColors.accent, letterSpacing: 1),
+            ),
+            const SizedBox(height: 10),
+            _CharacterStats(stats: character.stats),
+            const SizedBox(height: 18),
+            Text(
               'ACQUIRED SKILLS',
               style: Theme.of(context).textTheme.titleMedium
                   ?.copyWith(color: AppColors.accent, letterSpacing: 1),
@@ -204,6 +212,24 @@ class _CharacterStatusScreenState extends State<CharacterStatusScreen> {
       ),
     );
   }
+}
+
+class _CharacterStats extends StatelessWidget {
+  const _CharacterStats({required this.stats});
+  final DashboardStats stats;
+
+  @override
+  Widget build(BuildContext context) => Wrap(
+    spacing: 8,
+    runSpacing: 8,
+    children: [
+      _StatusStat(label: 'STRENGTH', value: stats.strength),
+      _StatusStat(label: 'INTELLIGENCE', value: stats.intelligence),
+      _StatusStat(label: 'VITALITY', value: stats.vitality),
+      _StatusStat(label: 'DISCIPLINE', value: stats.discipline),
+      _StatusStat(label: 'PERCEPTION', value: stats.perception),
+    ],
+  );
 }
 
 class _StatusStats extends StatelessWidget {

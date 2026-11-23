@@ -31,6 +31,9 @@ class ProgressionQuest {
     required this.type,
     required this.difficulty,
     required this.primarySkillId,
+    this.goalId,
+    this.milestoneId,
+    this.statContributions = const [],
     required this.objectives,
     required this.completed,
     required this.sourceTemplateId,
@@ -41,6 +44,9 @@ class ProgressionQuest {
   final String type;
   final String difficulty;
   final String? primarySkillId;
+  final String? goalId;
+  final String? milestoneId;
+  final List<String> statContributions;
   final List<QuestObjective> objectives;
   final bool completed;
   final String? sourceTemplateId;
@@ -73,6 +79,13 @@ class ProgressionQuest {
       type: type as String,
       difficulty: difficulty,
       primarySkillId: primarySkillId as String?,
+      goalId: json['goalId'] is String ? json['goalId'] as String : null,
+      milestoneId: json['milestoneId'] is String ? json['milestoneId'] as String : null,
+      statContributions: json['statContributions'] is List
+          ? (json['statContributions'] as List)
+              .whereType<String>()
+              .toList(growable: false)
+          : const [],
       objectives: _readList(objectives, QuestObjective.fromJson),
       completed: completed,
       sourceTemplateId: sourceTemplateId as String?,

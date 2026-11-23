@@ -32,6 +32,7 @@ class QuestCenterScreen extends StatefulWidget {
 class _QuestCenterScreenState extends State<QuestCenterScreen> {
   List<ProgressionQuest> _quests = const [];
   List<QuestTemplate> _templates = const [];
+  List<LibrarySkill> _skills = const [];
   DashboardData? _dashboard;
   String? _errorMessage;
   bool _isLoading = true;
@@ -67,11 +68,13 @@ class _QuestCenterScreenState extends State<QuestCenterScreen> {
     try {
       final quests = await repository.loadQuests(token);
       final templates = await repository.loadTemplates(token);
+      final skills = await repository.loadSkillLibrary(token);
       final dashboard = await widget.dashboardRepository.load(token);
       if (!mounted) return;
       setState(() {
         _quests = quests;
         _templates = templates;
+        _skills = skills;
         _dashboard = dashboard;
       });
     } on ApiException catch (error) {
@@ -137,6 +140,64 @@ class _QuestCenterScreenState extends State<QuestCenterScreen> {
     if (repository == null || token == null) return;
     await _performMutation(
       () => repository.completeObjective(token, questId, objectiveId),
+    );
+  }
+
+  Future<void> _createGoal() async {
+    final repository = widget.repository;
+    final token = widget.accessToken;
+    if (repository == null || token == null) return;
+    final input = await showDialog<_GoalInput>(
+      context: context,
+      builder: (context) => _GoalCreatorDialog(skills: _skills),
+    );
+    if (input == null) return;
+    await _performMutation(
+      () => repository.createGoal(
+        token,
+        title: input.title,
+        description: input.description,
+        primarySkillId: input.skillId,
+        skillName: input.customSkillName,
+        milestones: [
+          {
+            'title': input.milestoneTitle,
+            'description': input.description,
+            'quests': [
+              {
+                'title': input.questTitle,
+                'description': input.questDescription,
+                'difficulty': input.difficulty,
+                'objectives': input.objectives,
+                'statContributions': input.stats,
+              },
+            ],
+          },
+        ],
+      ),
+    );
+  }
+
+  Future<void> _createSideQuest() async {
+    final repository = widget.repository;
+    final token = widget.accessToken;
+    if (repository == null || token == null) return;
+    final input = await showDialog<_SideQuestInput>(
+      context: context,
+      builder: (context) => _SideQuestCreatorDialog(skills: _skills),
+    );
+    if (input == null) return;
+    await _performMutation(
+      () => repository.createSideQuest(
+        token,
+        title: input.title,
+        description: input.description,
+        difficulty: input.difficulty,
+        primarySkillId: input.skillId,
+        skillName: input.customSkillName,
+        objectives: input.objectives,
+        statContributions: input.stats,
+      ),
     );
   }
 
@@ -217,6 +278,23 @@ class _QuestCenterScreenState extends State<QuestCenterScreen> {
             'Activate a template to add quests. Completing quests awards Character XP; Skill XP is awarded only to an acquired associated skill.',
             style: TextStyle(color: AppColors.textSecondary),
           ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton.icon(
+                onPressed: _isMutating ? null : _createGoal,
+                icon: const Icon(Icons.flag_outlined),
+                label: const Text('Create goal'),
+              ),
+              OutlinedButton.icon(
+                onPressed: _isMutating ? null : _createSideQuest,
+                icon: const Icon(Icons.add_task),
+                label: const Text('Create side quest'),
+              ),
+            ],
+          ),
           if (_errorMessage != null) ...[
             const SizedBox(height: 12),
             _QuestNotice(message: _errorMessage!, onRetry: _load),
@@ -278,6 +356,394 @@ class _QuestCenterScreenState extends State<QuestCenterScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _GoalInput {
+  const _GoalInput({
+    required this.title,
+    required this.description,
+    required this.skillId,
+    required this.customSkillName,
+    required this.milestoneTitle,
+    required this.questTitle,
+    required this.questDescription,
+    required this.difficulty,
+    required this.objectives,
+    required this.stats,
+  });
+  final String title;
+  final String description;
+  final String? skillId;
+  final String? customSkillName;
+  final String milestoneTitle;
+  final String questTitle;
+  final String questDescription;
+  final String difficulty;
+  final List<String> objectives;
+  final List<String> stats;
+}
+
+class _SideQuestInput {
+  const _SideQuestInput({
+    required this.title,
+    required this.description,
+    required this.skillId,
+    required this.customSkillName,
+    required this.difficulty,
+    required this.objectives,
+    required this.stats,
+  });
+  final String title;
+  final String description;
+  final String? skillId;
+  final String? customSkillName;
+  final String difficulty;
+  final List<String> objectives;
+  final List<String> stats;
+}
+
+class _GoalCreatorDialog extends StatefulWidget {
+  const _GoalCreatorDialog({required this.skills});
+  final List<LibrarySkill> skills;
+
+  @override
+  State<_GoalCreatorDialog> createState() => _GoalCreatorDialogState();
+}
+
+class _GoalCreatorDialogState extends State<_GoalCreatorDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _title = TextEditingController();
+  final _description = TextEditingController();
+  final _milestone = TextEditingController();
+  final _questTitle = TextEditingController();
+  final _questDescription = TextEditingController();
+  final _objectives = TextEditingController();
+  final _customSkill = TextEditingController();
+  String? _skillId;
+  String _difficulty = 'NORMAL';
+  final Set<String> _stats = {'discipline'};
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _description.dispose();
+    _milestone.dispose();
+    _questTitle.dispose();
+    _questDescription.dispose();
+    _objectives.dispose();
+    _customSkill.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    final objectiveList = _objectives.text
+        .split(',')
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty)
+        .toList(growable: false);
+    Navigator.pop(
+      context,
+      _GoalInput(
+        title: _title.text.trim(),
+        description: _description.text.trim(),
+        skillId: _skillId == '__CUSTOM__' ? null : _skillId,
+        customSkillName: _skillId == '__CUSTOM__'
+            ? _customSkill.text.trim()
+            : null,
+        milestoneTitle: _milestone.text.trim(),
+        questTitle: _questTitle.text.trim(),
+        questDescription: _questDescription.text.trim(),
+        difficulty: _difficulty,
+        objectives: objectiveList,
+        stats: _stats.toList(growable: false),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    backgroundColor: AppColors.surface,
+    title: const Text('Create goal'),
+    content: SizedBox(
+      width: 520,
+      child: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: _title,
+                maxLength: 120,
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? 'Enter a goal title.'
+                    : null,
+                decoration: const InputDecoration(labelText: 'Goal title'),
+              ),
+              TextFormField(
+                controller: _description,
+                maxLines: 2,
+                decoration: const InputDecoration(labelText: 'Description'),
+              ),
+              DropdownButtonFormField<String>(
+                initialValue: _skillId,
+                decoration: const InputDecoration(labelText: 'Associated skill'),
+                items: [
+                  for (final skill in widget.skills)
+                    DropdownMenuItem(value: skill.id, child: Text(skill.name)),
+                  const DropdownMenuItem(
+                    value: '__CUSTOM__',
+                    child: Text('Create a new skill'),
+                  ),
+                ],
+                validator: (value) => value == null ? 'Select a skill.' : null,
+                onChanged: (value) => setState(() => _skillId = value),
+              ),
+              if (_skillId == '__CUSTOM__')
+                TextFormField(
+                  controller: _customSkill,
+                  maxLength: 80,
+                  validator: (value) =>
+                      value == null || value.trim().isEmpty
+                      ? 'Enter a skill name.'
+                      : null,
+                  decoration: const InputDecoration(labelText: 'New skill name'),
+                ),
+              TextFormField(
+                controller: _milestone,
+                maxLength: 120,
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? 'Enter a milestone title.'
+                    : null,
+                decoration: const InputDecoration(labelText: 'Milestone title'),
+              ),
+              TextFormField(
+                controller: _questTitle,
+                maxLength: 120,
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? 'Enter a main quest title.'
+                    : null,
+                decoration: const InputDecoration(labelText: 'Main quest title'),
+              ),
+              TextFormField(
+                controller: _questDescription,
+                maxLines: 2,
+                decoration: const InputDecoration(labelText: 'Quest description'),
+              ),
+              DropdownButtonFormField<String>(
+                initialValue: _difficulty,
+                decoration: const InputDecoration(labelText: 'Difficulty'),
+                items: const [
+                  DropdownMenuItem(value: 'EASY', child: Text('Easy')),
+                  DropdownMenuItem(value: 'NORMAL', child: Text('Normal')),
+                  DropdownMenuItem(value: 'HARD', child: Text('Hard')),
+                  DropdownMenuItem(value: 'EPIC', child: Text('Epic')),
+                ],
+                onChanged: (value) {
+                  if (value != null) setState(() => _difficulty = value);
+                },
+              ),
+              TextFormField(
+                controller: _objectives,
+                decoration: const InputDecoration(
+                  labelText: 'Objectives (comma separated, optional)',
+                ),
+              ),
+              const SizedBox(height: 10),
+              _StatPicker(
+                selected: _stats,
+                onChanged: () => setState(() {}),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(onPressed: _submit, child: const Text('Create')),
+    ],
+  );
+}
+
+class _SideQuestCreatorDialog extends StatefulWidget {
+  const _SideQuestCreatorDialog({required this.skills});
+  final List<LibrarySkill> skills;
+
+  @override
+  State<_SideQuestCreatorDialog> createState() =>
+      _SideQuestCreatorDialogState();
+}
+
+class _SideQuestCreatorDialogState extends State<_SideQuestCreatorDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _title = TextEditingController();
+  final _description = TextEditingController();
+  final _objectives = TextEditingController();
+  final _customSkill = TextEditingController();
+  String? _skillId;
+  String _difficulty = 'NORMAL';
+  final Set<String> _stats = {'discipline'};
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _description.dispose();
+    _objectives.dispose();
+    _customSkill.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    Navigator.pop(
+      context,
+      _SideQuestInput(
+        title: _title.text.trim(),
+        description: _description.text.trim(),
+        skillId: _skillId == '__CUSTOM__' ? null : _skillId,
+        customSkillName: _skillId == '__CUSTOM__'
+            ? _customSkill.text.trim()
+            : null,
+        difficulty: _difficulty,
+        objectives: _objectives.text
+            .split(',')
+            .map((value) => value.trim())
+            .where((value) => value.isNotEmpty)
+            .toList(growable: false),
+        stats: _stats.toList(growable: false),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    backgroundColor: AppColors.surface,
+    title: const Text('Create side quest'),
+    content: SizedBox(
+      width: 520,
+      child: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: _title,
+                maxLength: 120,
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? 'Enter a quest title.'
+                    : null,
+                decoration: const InputDecoration(labelText: 'Quest title'),
+              ),
+              TextFormField(
+                controller: _description,
+                maxLines: 2,
+                decoration: const InputDecoration(labelText: 'Description'),
+              ),
+              DropdownButtonFormField<String>(
+                initialValue: _skillId,
+                decoration: const InputDecoration(labelText: 'Primary skill'),
+                items: [
+                  for (final skill in widget.skills)
+                    DropdownMenuItem(value: skill.id, child: Text(skill.name)),
+                  const DropdownMenuItem(
+                    value: '__CUSTOM__',
+                    child: Text('Create a new skill'),
+                  ),
+                ],
+                validator: (value) => value == null ? 'Select a skill.' : null,
+                onChanged: (value) => setState(() => _skillId = value),
+              ),
+              if (_skillId == '__CUSTOM__')
+                TextFormField(
+                  controller: _customSkill,
+                  maxLength: 80,
+                  validator: (value) =>
+                      value == null || value.trim().isEmpty
+                      ? 'Enter a skill name.'
+                      : null,
+                  decoration: const InputDecoration(labelText: 'New skill name'),
+                ),
+              DropdownButtonFormField<String>(
+                initialValue: _difficulty,
+                decoration: const InputDecoration(labelText: 'Difficulty'),
+                items: const [
+                  DropdownMenuItem(value: 'EASY', child: Text('Easy')),
+                  DropdownMenuItem(value: 'NORMAL', child: Text('Normal')),
+                  DropdownMenuItem(value: 'HARD', child: Text('Hard')),
+                  DropdownMenuItem(value: 'EPIC', child: Text('Epic')),
+                ],
+                onChanged: (value) {
+                  if (value != null) setState(() => _difficulty = value);
+                },
+              ),
+              TextFormField(
+                controller: _objectives,
+                decoration: const InputDecoration(
+                  labelText: 'Objectives (comma separated, optional)',
+                ),
+              ),
+              const SizedBox(height: 10),
+              _StatPicker(
+                selected: _stats,
+                onChanged: () => setState(() {}),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(onPressed: _submit, child: const Text('Create')),
+    ],
+  );
+}
+
+class _StatPicker extends StatelessWidget {
+  const _StatPicker({required this.selected, required this.onChanged});
+  final Set<String> selected;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    const stats = [
+      ('strength', 'Strength'),
+      ('intelligence', 'Intelligence'),
+      ('vitality', 'Vitality'),
+      ('discipline', 'Discipline'),
+      ('perception', 'Perception'),
+    ];
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: [
+        for (final stat in stats)
+          FilterChip(
+            label: Text(stat.$2),
+            selected: selected.contains(stat.$1),
+            onSelected: (value) {
+              if (value) {
+                if (selected.length >= 2) return;
+                selected.add(stat.$1);
+              } else {
+                if (selected.length <= 1) return;
+                selected.remove(stat.$1);
+              }
+              onChanged();
+            },
+          ),
+      ],
     );
   }
 }

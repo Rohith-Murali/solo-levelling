@@ -24,6 +24,42 @@ class ProgressionRepositoryImpl implements ProgressionRepository {
   Future<void> completeQuest(String token, String questId) =>
       api.completeQuest(token, questId);
   @override
+  Future<void> createGoal(
+    String token, {
+    required String title,
+    required String description,
+    String? primarySkillId,
+    String? skillName,
+    List<Map<String, Object?>> milestones = const [],
+  }) => api.createGoal(
+    token,
+    title: title,
+    description: description,
+    primarySkillId: primarySkillId,
+    skillName: skillName,
+    milestones: milestones,
+  );
+  @override
+  Future<void> createSideQuest(
+    String token, {
+    required String title,
+    required String description,
+    required String difficulty,
+    String? primarySkillId,
+    String? skillName,
+    List<String> objectives = const [],
+    List<String> statContributions = const [],
+  }) => api.createSideQuest(
+    token,
+    title: title,
+    description: description,
+    difficulty: difficulty,
+    primarySkillId: primarySkillId,
+    skillName: skillName,
+    objectives: objectives,
+    statContributions: statContributions,
+  );
+  @override
   Future<List<LibrarySkill>> loadSkillLibrary(String token) =>
       api.getSkillLibrary(token);
   @override

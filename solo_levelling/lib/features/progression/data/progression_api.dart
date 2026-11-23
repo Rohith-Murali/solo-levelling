@@ -54,6 +54,52 @@ class ProgressionApi {
     );
   }
 
+  Future<void> createGoal(
+    String token, {
+    required String title,
+    required String description,
+    String? primarySkillId,
+    String? skillName,
+    List<Map<String, Object?>> milestones = const [],
+  }) async {
+    await _client.postJson(
+      'quests/goals',
+      body: {
+        'title': title,
+        'description': description,
+        if (primarySkillId != null) 'primarySkillId': primarySkillId,
+        if (skillName != null) 'skillName': skillName,
+        'milestones': milestones,
+      },
+      bearerToken: token,
+    );
+  }
+
+  Future<void> createSideQuest(
+    String token, {
+    required String title,
+    required String description,
+    required String difficulty,
+    String? primarySkillId,
+    String? skillName,
+    List<String> objectives = const [],
+    List<String> statContributions = const [],
+  }) async {
+    await _client.postJson(
+      'quests/side',
+      body: {
+        'title': title,
+        'description': description,
+        'difficulty': difficulty,
+        if (primarySkillId != null) 'primarySkillId': primarySkillId,
+        if (skillName != null) 'skillName': skillName,
+        'objectives': objectives,
+        'statContributions': statContributions,
+      },
+      bearerToken: token,
+    );
+  }
+
   Future<List<LibrarySkill>> getSkillLibrary(String token) async {
     final response = await _client.getJson(
       'skills/library',

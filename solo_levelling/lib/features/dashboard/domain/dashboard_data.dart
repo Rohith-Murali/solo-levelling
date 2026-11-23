@@ -12,6 +12,7 @@ class DashboardCharacter {
     required this.currentLevelXp,
     required this.xpToNextLevel,
     required this.skillUnlockTokens,
+    required this.stats,
   });
 
   final String id;
@@ -24,6 +25,7 @@ class DashboardCharacter {
   final int currentLevelXp;
   final int xpToNextLevel;
   final int skillUnlockTokens;
+  final DashboardStats stats;
 
   factory DashboardCharacter.fromJson(Map<String, dynamic> json) {
     final id = json['id'];
@@ -36,6 +38,7 @@ class DashboardCharacter {
     final currentLevelXp = json['currentLevelXp'];
     final xpToNextLevel = json['xpToNextLevel'];
     final skillUnlockTokens = json['skillUnlockTokens'];
+    final stats = json['stats'];
     if (id is! String ||
         name is! String ||
         avatarId is! String ||
@@ -60,8 +63,41 @@ class DashboardCharacter {
       currentLevelXp: currentLevelXp,
       xpToNextLevel: xpToNextLevel,
       skillUnlockTokens: skillUnlockTokens,
+      stats: stats is Map<String, dynamic>
+          ? DashboardStats.fromJson(stats)
+          : const DashboardStats(),
     );
   }
+}
+
+class DashboardStats {
+  const DashboardStats({
+    this.strength = 1,
+    this.intelligence = 1,
+    this.vitality = 1,
+    this.discipline = 1,
+    this.perception = 1,
+  });
+  final int strength;
+  final int intelligence;
+  final int vitality;
+  final int discipline;
+  final int perception;
+
+  factory DashboardStats.fromJson(Map<String, dynamic> json) =>
+      DashboardStats(
+        strength: json['strength'] is int ? json['strength'] as int : 1,
+        intelligence: json['intelligence'] is int
+            ? json['intelligence'] as int
+            : 1,
+        vitality: json['vitality'] is int ? json['vitality'] as int : 1,
+        discipline: json['discipline'] is int
+            ? json['discipline'] as int
+            : 1,
+        perception: json['perception'] is int
+            ? json['perception'] as int
+            : 1,
+      );
 }
 
 class DashboardStatistics {
