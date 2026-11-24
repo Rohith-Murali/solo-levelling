@@ -9,17 +9,24 @@ class AuthRepositoryImpl implements AuthRepository {
 
   final AuthApi api;
   final RefreshTokenStorage tokenStorage;
+  void Function()? onAccessTokenChanged;
   String? _accessToken;
   Future<String?>? _refreshInFlight;
 
   @override
   String? get accessToken => _accessToken;
 
+  void _setAccessToken(String? token) {
+    if (_accessToken == token) return;
+    _accessToken = token;
+    onAccessTokenChanged?.call();
+  }
+
   @override
   Future<AuthUser> login(String email, String password) async {
     final session = await api.login(email, password);
     await tokenStorage.write(session.refreshToken);
-    _accessToken = session.accessToken;
+    _setAccessToken(session.accessToken);
     return session.user;
   }
 
@@ -27,7 +34,7 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<AuthUser> register(String email, String password) async {
     final session = await api.register(email, password);
     await tokenStorage.write(session.refreshToken);
-    _accessToken = session.accessToken;
+    _setAccessToken(session.accessToken);
     return session.user;
   }
 
@@ -41,7 +48,7 @@ class AuthRepositoryImpl implements AuthRepository {
         return await api.getCurrentUser(accessToken);
       } on ApiException catch (error) {
         if (error.statusCode == 401) {
-          _accessToken = null;
+          _setAccessToken(null);
           await tokenStorage.clear();
           return null;
         }
@@ -77,11 +84,11 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       final session = await api.refresh(refreshToken);
       await tokenStorage.write(session.refreshToken);
-      _accessToken = session.accessToken;
+      _setAccessToken(session.accessToken);
       return session.accessToken;
     } on ApiException catch (error) {
       if (error.statusCode == 401) {
-        _accessToken = null;
+        _setAccessToken(null);
         await tokenStorage.clear();
         return null;
       }
@@ -97,7 +104,7 @@ class AuthRepositoryImpl implements AuthRepository {
         await api.logout(refreshToken);
       }
     } finally {
-      _accessToken = null;
+      _setAccessToken(null);
       await tokenStorage.clear();
     }
   }

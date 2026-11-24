@@ -87,6 +87,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
         statContributions: input.statContributions,
       );
       await _load();
+      widget.onDataChanged();
       if (mounted) {
         await SystemNotification.show(
           context,
@@ -119,7 +120,8 @@ class _GoalsScreenState extends State<GoalsScreen> {
       primarySkillId: input.skillId,
       statContributions: input.statContributions,
     );
-    _load();
+    await _load();
+    widget.onDataChanged();
   }
 
   Future<void> _delete(ProgressionGoal goal) async {
@@ -144,7 +146,8 @@ class _GoalsScreenState extends State<GoalsScreen> {
     final token = widget.accessToken;
     if (ok != true || repo == null || token == null) return;
     await repo.deleteGoal(token, goal.id);
-    _load();
+    await _load();
+    widget.onDataChanged();
   }
 
   Future<void> _openGoal(ProgressionGoal goal) async {
@@ -198,6 +201,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
       description: input.second,
     );
     await _load();
+    widget.onDataChanged();
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -220,6 +224,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
       description: input.second,
     );
     await _load();
+    widget.onDataChanged();
     if (mounted) {
       await SystemNotification.show(
         context,
@@ -242,6 +247,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
     );
     await repo.deleteMilestone(token, goal.id, milestone.id);
     await _load();
+    widget.onDataChanged();
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -267,6 +273,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
       statContributions: quest.statContributions,
     );
     await _load();
+    widget.onDataChanged();
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -291,6 +298,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
         milestoneId: input.milestoneId,
       );
       await _load();
+      widget.onDataChanged();
       if (mounted) {
         await SystemNotification.show(
           context,
@@ -316,6 +324,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
     if (!ok || repo == null || token == null) return;
     await repo.deleteGoalQuest(token, goal.id, quest.id);
     await _load();
+    widget.onDataChanged();
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -327,6 +336,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
     try {
       await repo.completeQuest(token, quest.id);
       await _load();
+      widget.onDataChanged();
       if (!mounted) return;
       final after = _dashboard;
       if (after == null) return;
@@ -384,7 +394,6 @@ class _GoalsScreenState extends State<GoalsScreen> {
       await SystemNotification.showStack(context, notifications);
       if (mounted) {
         Navigator.of(context).pop();
-        widget.onDataChanged();
       }
     } on ApiException catch (error) {
       if (mounted) {
@@ -404,6 +413,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
     try {
       await repo.completeMilestone(token, goal.id, milestone.id);
       await _load();
+      widget.onDataChanged();
       if (mounted) {
         await SystemNotification.show(
           context,
@@ -411,7 +421,6 @@ class _GoalsScreenState extends State<GoalsScreen> {
           message: 'MILESTONE COMPLETED\n\n${milestone.title}',
         );
         Navigator.of(context).pop();
-        widget.onDataChanged();
       }
     } on ApiException catch (error) {
       if (mounted) {
@@ -428,6 +437,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
     try {
       await repo.completeGoal(token, goal.id);
       await _load();
+      widget.onDataChanged();
       if (mounted) {
         await SystemNotification.show(
           context,
@@ -435,7 +445,6 @@ class _GoalsScreenState extends State<GoalsScreen> {
           message: 'GOAL COMPLETED\n\n${goal.title}',
         );
         Navigator.of(context).pop();
-        widget.onDataChanged();
       }
     } on ApiException catch (error) {
       if (mounted) {
