@@ -288,6 +288,7 @@ class DashboardActivity {
   const DashboardActivity({
     required this.id,
     required this.type,
+    required this.relatedEntityId,
     required this.title,
     required this.description,
     required this.createdAt,
@@ -296,6 +297,7 @@ class DashboardActivity {
 
   final String id;
   final String type;
+  final String? relatedEntityId;
   final String title;
   final String description;
   final String createdAt;
@@ -304,12 +306,14 @@ class DashboardActivity {
   factory DashboardActivity.fromJson(Map<String, dynamic> json) {
     final id = json['id'];
     final type = json['type'];
+    final relatedEntityId = json['relatedEntityId'];
     final title = json['title'];
     final description = json['description'];
     final createdAt = json['createdAt'];
     final xpGained = json['xpGained'];
     if (id is! String ||
         type is! String ||
+        (relatedEntityId != null && relatedEntityId is! String) ||
         title is! String ||
         description is! String ||
         createdAt is! String ||
@@ -319,6 +323,7 @@ class DashboardActivity {
     return DashboardActivity(
       id: id,
       type: type,
+      relatedEntityId: relatedEntityId as String?,
       title: title,
       description: description,
       createdAt: createdAt,

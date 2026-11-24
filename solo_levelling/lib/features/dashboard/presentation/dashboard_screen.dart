@@ -322,7 +322,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     try {
       await action(repository, token);
       await _loadDashboard(refresh: true);
-      widget.onProgressionChanged?.call();
       if (!mounted) return;
       final after = _data;
       if (after == null) return;
@@ -340,6 +339,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ]);
         }
+        if (mounted) widget.onProgressionChanged?.call();
       } else if (kind == _ProgressionActionKind.quest) {
         final xp = before == null
             ? 0
@@ -353,7 +353,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
             message: 'QUEST COMPLETED\n\n+${xp} XP EARNED',
           ),
         ];
-        if (before != null && after.character.level > before.character.level) {
+        final previousActivityIds = {
+          for (final activity in before?.recentActivity ?? const [])
+            activity.id,
+        };
+        final characterLevelledUp = after.recentActivity.any(
+          (activity) =>
+              !previousActivityIds.contains(activity.id) &&
+              activity.type == 'CHARACTER_LEVEL_INCREASED',
+        );
+        if (characterLevelledUp ||
+            (before != null &&
+                after.character.level > before.character.level)) {
           notifications.add(
             SystemNotificationData(
               icon: Icons.trending_up,
@@ -367,7 +378,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
           };
           for (final skill in after.skills) {
             final oldSkill = oldSkills[skill.id];
-            if (oldSkill != null && skill.level > oldSkill.level) {
+            final skillLevelledUp = after.recentActivity.any(
+              (activity) =>
+                  !previousActivityIds.contains(activity.id) &&
+                  activity.type == 'SKILL_LEVEL_INCREASED' &&
+                  activity.relatedEntityId == skill.id,
+            );
+            if (skillLevelledUp ||
+                (oldSkill != null && skill.level > oldSkill.level)) {
               notifications.add(
                 SystemNotificationData(
                   icon: Icons.auto_awesome,
@@ -379,6 +397,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           }
         }
         await SystemNotification.showStack(context, notifications);
+        if (mounted) widget.onProgressionChanged?.call();
       } else if (kind == _ProgressionActionKind.template) {
         final oldIds = {
           for (final quest in before?.activeQuests ?? const []) quest.id,
@@ -393,6 +412,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             message: 'NEW QUEST UNLOCKED\n\n${added.first.title}',
           );
         }
+        if (mounted) widget.onProgressionChanged?.call();
       }
     } on ApiException catch (error) {
       if (error.code == 'CONCURRENT_UPDATE' ||

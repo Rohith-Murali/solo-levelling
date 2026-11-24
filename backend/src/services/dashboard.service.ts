@@ -61,6 +61,7 @@ function progressionActivity(
   return {
     id: event.id,
     type: event.type,
+    relatedEntityId: event.relatedEntityId ?? null,
     title: progressionEventTitles[event.type] ?? "Progression update",
     description,
     createdAt: event.occurredAt.toISOString(),

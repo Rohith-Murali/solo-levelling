@@ -288,7 +288,6 @@ class _GoalsScreenState extends State<GoalsScreen> {
     try {
       await repo.completeQuest(token, quest.id);
       await _load();
-      widget.onDataChanged();
       if (!mounted) return;
       final after = _dashboard;
       if (after == null) return;
@@ -304,7 +303,16 @@ class _GoalsScreenState extends State<GoalsScreen> {
           message: 'QUEST COMPLETED\n\n+${xp} XP EARNED',
         ),
       ];
-      if (before != null && after.character.level > before.character.level) {
+      final previousActivityIds = {
+        for (final activity in before?.recentActivity ?? const []) activity.id,
+      };
+      final characterLevelledUp = after.recentActivity.any(
+        (activity) =>
+            !previousActivityIds.contains(activity.id) &&
+            activity.type == 'CHARACTER_LEVEL_INCREASED',
+      );
+      if (characterLevelledUp ||
+          (before != null && after.character.level > before.character.level)) {
         notifications.add(
           SystemNotificationData(
             icon: Icons.trending_up,
@@ -316,7 +324,14 @@ class _GoalsScreenState extends State<GoalsScreen> {
         final oldSkills = {for (final skill in before.skills) skill.id: skill};
         for (final skill in after.skills) {
           final oldSkill = oldSkills[skill.id];
-          if (oldSkill != null && skill.level > oldSkill.level) {
+          final skillLevelledUp = after.recentActivity.any(
+            (activity) =>
+                !previousActivityIds.contains(activity.id) &&
+                activity.type == 'SKILL_LEVEL_INCREASED' &&
+                activity.relatedEntityId == skill.id,
+          );
+          if (skillLevelledUp ||
+              (oldSkill != null && skill.level > oldSkill.level)) {
             notifications.add(
               SystemNotificationData(
                 icon: Icons.auto_awesome,
@@ -328,6 +343,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
         }
       }
       await SystemNotification.showStack(context, notifications);
+      if (mounted) widget.onDataChanged();
     } on ApiException catch (error) {
       if (mounted)
         ScaffoldMessenger.of(context)
