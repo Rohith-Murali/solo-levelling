@@ -5,17 +5,12 @@ import { User } from "../models/user.model.js";
 import type { CharacterRecord, CharacterStats, GoalRecord, MilestoneRecord, QuestRecord, SkillRecord } from "../models/user.model.js";
 import { toPlainCharacterRecord } from "./character-record.js";
 import { characterVersionFilter } from "./character-version-filter.js";
-import { activateTemplate, questTemplates } from "./quest-catalog.js";
 import { startingSkills } from "./character-catalog.js";
 
 function requireCharacter(user: { character?: CharacterRecord } | null): CharacterRecord {
   if (!user) throw new AppError(401, "INVALID_ACCESS_TOKEN", "Your session is invalid or expired.");
   if (!user.character) throw new AppError(409, "CHARACTER_REQUIRED", "Create a character before managing quests.");
   return user.character;
-}
-
-function hasTemplateQuests(character: CharacterRecord, templateId: string): boolean {
-  return (character.quests ?? []).some((quest) => quest.sourceTemplateId === templateId);
 }
 
 function skillState(character: CharacterRecord): ProgressionState["skills"] {
@@ -154,62 +149,6 @@ function ensureSkillRecord(character: CharacterRecord, skillId: string, name?: s
 export function createQuestService() {
   const engine = new ProgressionEngine();
   return {
-    async templates(userId: string) {
-      const user = await User.findById(userId).select("character");
-      const character = requireCharacter(user);
-      return questTemplates.filter((template) => template.minimumLevel <= character.level).map(({ id, name, description, minimumLevel, goal, milestones }) => ({ id, name, description, minimumLevel, goal, milestoneCount: milestones.length, questCount: milestones.reduce((count, milestone) => count + milestone.quests.length, 0) }));
-    },
-
-    async activateTemplate(userId: string, templateId: string) {
-      const user = await User.findById(userId).select("character");
-      const character = requireCharacter(user);
-      const source = questTemplates.find((template) => template.id === templateId);
-      if (!source) throw new AppError(404, "TEMPLATE_NOT_FOUND", "Quest template not found.");
-      if (character.level < source.minimumLevel) throw new AppError(403, "TEMPLATE_LOCKED", "This quest template is not unlocked yet.");
-      const plainCharacter = toPlainCharacterRecord(character);
-      const alreadyActive = hasTemplateQuests(character, templateId);
-      const activated = alreadyActive ? undefined : activateTemplate(templateId);
-      const templateQuests = activated?.quests ??
-        (plainCharacter.quests ?? []).filter((quest) => quest.sourceTemplateId === templateId);
-      const progression = progressionState(plainCharacter);
-      const skillEvents: ProgressionEvent[] = [];
-      const templateSkillIds = new Set(templateQuests.map((quest) => quest.primarySkillId).filter((skillId): skillId is string => skillId !== undefined));
-      let nextProgression = progression;
-      for (const skillId of templateSkillIds) {
-        if (nextProgression.skills[skillId]) continue;
-        const skill = startingSkills.find((candidate) => candidate.id === skillId);
-        if (!skill) {
-          throw new AppError(500, "TEMPLATE_SKILL_NOT_FOUND", "A skill required by this quest template is unavailable.");
-        }
-        const granted = engine.grantSkill(nextProgression, skill, "QUEST_TEMPLATE");
-        nextProgression = granted.state;
-        skillEvents.push(granted.event);
-      }
-      if (alreadyActive && skillEvents.length === 0) return { alreadyActive: true };
-      const nextCharacter = {
-        ...plainCharacter,
-        goals: activated ? [...(plainCharacter.goals ?? []), activated.goal] : plainCharacter.goals,
-        milestones: activated ? [...(plainCharacter.milestones ?? []), ...activated.milestones] : plainCharacter.milestones,
-        quests: activated ? [...(plainCharacter.quests ?? []), ...activated.quests] : plainCharacter.quests,
-        skills: currentSkillRecords(nextProgression),
-        skillUnlockTokens: nextProgression.skillUnlockTokens,
-        progressionEvents: [...(plainCharacter.progressionEvents ?? []), ...skillEvents],
-        version: (character.version ?? 0) + 1,
-        updatedAt: new Date(),
-      };
-      const updated = await User.findOneAndUpdate({ _id: userId, ...characterVersionFilter(character.version) }, { $set: { character: nextCharacter } }, { new: true, runValidators: true });
-      if (!updated) {
-        const latestUser = await User.findById(userId).select("character");
-        if (latestUser?.character && hasTemplateQuests(latestUser.character, templateId)) {
-          return { alreadyActive: true };
-        }
-        throw new AppError(409, "CONCURRENT_UPDATE", "The character changed. Please retry.");
-      }
-      return activated
-        ? { alreadyActive: false, goal: activated.goal, milestones: activated.milestones, quests: activated.quests }
-        : { alreadyActive: true, acquiredSkills: currentSkillRecords(nextProgression).filter((skill) => skillEvents.some((event) => event.relatedEntityId === skill.id)) };
-    },
-
     async createGoal(userId: string, input: { title: string; description: string; primarySkillId?: string; skillName?: string; statContributions?: string[]; milestones?: Array<{ title: string; description?: string; quests?: Array<{ title: string; description?: string; difficulty?: string; statContributions?: string[] }> }> }) {
       const user = await User.findById(userId).select("character");
       const character = requireCharacter(user);

@@ -13,24 +13,6 @@ export function createQuestController(service: QuestService) {
     return request.authIdentity.userId;
   };
   return {
-    templates: async (request: Request, response: Response) =>
-      response
-        .status(200)
-        .json({
-          data: { templates: await service.templates(identity(request)) },
-        }),
-    activateTemplate: async (
-      request: Request<{ templateId: string }>,
-      response: Response,
-    ) => {
-      const activation = await service.activateTemplate(
-        identity(request),
-        request.params.templateId,
-      );
-      return response
-        .status(activation.alreadyActive ? 200 : 201)
-        .json({ data: activation });
-    },
     list: async (request: Request, response: Response) =>
       response
         .status(200)

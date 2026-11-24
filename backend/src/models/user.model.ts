@@ -36,7 +36,6 @@ export interface QuestRecord {
   statContributions: (keyof CharacterStats)[];
   completed: boolean;
   completedAt?: Date;
-  sourceTemplateId?: string;
 }
 
 export interface MilestoneRecord {
@@ -137,7 +136,6 @@ const questSchema = new Schema<QuestRecord>({
   statContributions: { type: [String], enum: ["strength", "intelligence", "vitality", "discipline", "perception"], required: true, default: [] },
   completed: { type: Boolean, required: true },
   completedAt: { type: Date, required: false },
-  sourceTemplateId: { type: String, required: false },
 }, { _id: false });
 
 const milestoneSchema = new Schema<MilestoneRecord>({

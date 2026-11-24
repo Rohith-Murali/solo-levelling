@@ -3,7 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../app/theme/app_colors.dart';
 
 class HolographicDialog extends StatelessWidget {
-  const HolographicDialog({
+  const HolographicDialog({super.key, 
     required this.title,
     required this.child,
     this.actions,

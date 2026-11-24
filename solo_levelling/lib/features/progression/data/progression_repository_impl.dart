@@ -12,13 +12,6 @@ class ProgressionRepositoryImpl implements ProgressionRepository {
   Future<ProgressionStructure> loadStructure(String token) =>
       api.getStructure(token);
   @override
-  Future<List<QuestTemplate>> loadTemplates(String token) =>
-      api.getTemplates(token);
-  @override
-  Future<void> activateTemplate(String token, String templateId) =>
-      api.activateTemplate(token, templateId);
-  @override
-  @override
   Future<void> completeQuest(String token, String questId) =>
       api.completeQuest(token, questId);
   @override

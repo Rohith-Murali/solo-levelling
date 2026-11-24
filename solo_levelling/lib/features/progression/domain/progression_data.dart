@@ -12,7 +12,6 @@ class ProgressionQuest {
     this.milestoneId,
     this.statContributions = const [],
     required this.completed,
-    required this.sourceTemplateId,
   });
   final String id;
   final String title;
@@ -24,7 +23,6 @@ class ProgressionQuest {
   final String? milestoneId;
   final List<String> statContributions;
   final bool completed;
-  final String? sourceTemplateId;
 
   factory ProgressionQuest.fromJson(Map<String, dynamic> json) {
     final id = json['id'];
@@ -34,14 +32,12 @@ class ProgressionQuest {
     final difficulty = json['difficulty'];
     final primarySkillId = json['primarySkillId'];
     final completed = json['completed'];
-    final sourceTemplateId = json['sourceTemplateId'];
     if (id is! String ||
         title is! String ||
         description is! String ||
         (type != 'MAIN' && type != 'SIDE') ||
         difficulty is! String ||
         (primarySkillId != null && primarySkillId is! String) ||
-        (sourceTemplateId != null && sourceTemplateId is! String) ||
         completed is! bool) {
       throw const ApiException('The server returned invalid quest data.');
     }
@@ -62,51 +58,6 @@ class ProgressionQuest {
             )
           : const [],
       completed: completed,
-      sourceTemplateId: sourceTemplateId as String?,
-    );
-  }
-}
-
-class QuestTemplate {
-  const QuestTemplate({
-    required this.id,
-    required this.name,
-    required this.description,
-    required this.minimumLevel,
-    required this.milestoneCount,
-    required this.questCount,
-  });
-  final String id;
-  final String name;
-  final String description;
-  final int minimumLevel;
-  final int milestoneCount;
-  final int questCount;
-
-  factory QuestTemplate.fromJson(Map<String, dynamic> json) {
-    final id = json['id'];
-    final name = json['name'];
-    final description = json['description'];
-    final minimumLevel = json['minimumLevel'];
-    final milestoneCount = json['milestoneCount'];
-    final questCount = json['questCount'];
-    if (id is! String ||
-        name is! String ||
-        description is! String ||
-        minimumLevel is! int ||
-        milestoneCount is! int ||
-        questCount is! int) {
-      throw const ApiException(
-        'The server returned invalid quest template data.',
-      );
-    }
-    return QuestTemplate(
-      id: id,
-      name: name,
-      description: description,
-      minimumLevel: minimumLevel,
-      milestoneCount: milestoneCount,
-      questCount: questCount,
     );
   }
 }
@@ -231,8 +182,9 @@ class LibrarySkill {
     final id = json['id'];
     final name = json['name'];
     final description = json['description'];
-    if (id is! String || name is! String || description is! String)
+    if (id is! String || name is! String || description is! String) {
       throw const ApiException('The server returned invalid skill data.');
+    }
     return LibrarySkill(id: id, name: name, description: description);
   }
 }

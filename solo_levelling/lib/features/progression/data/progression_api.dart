@@ -20,33 +20,13 @@ class ProgressionApi {
     if (data is! Map<String, dynamic> ||
         data['goals'] is! List ||
         data['milestones'] is! List ||
-        data['quests'] is! List)
+        data['quests'] is! List) {
       throw const ApiException('The server returned invalid quest data.');
+    }
     return ProgressionStructure(
       goals: _read(data['goals'], ProgressionGoal.fromJson),
       milestones: _read(data['milestones'], ProgressionMilestone.fromJson),
       quests: _read(data['quests'], ProgressionQuest.fromJson),
-    );
-  }
-
-  Future<List<QuestTemplate>> getTemplates(String token) async {
-    final response = await _client.getJson(
-      'quests/templates',
-      bearerToken: token,
-    );
-    final data = response['data'];
-    if (data is! Map<String, dynamic> || data['templates'] is! List)
-      throw const ApiException(
-        'The server returned invalid quest template data.',
-      );
-    return _read(data['templates'], QuestTemplate.fromJson);
-  }
-
-  Future<void> activateTemplate(String token, String templateId) async {
-    await _client.postJson(
-      'quests/templates/$templateId/activate',
-      body: const {},
-      bearerToken: token,
     );
   }
 
@@ -92,8 +72,8 @@ class ProgressionApi {
       body: {
         'title': title,
         'description': description,
-        if (primarySkillId != null) 'primarySkillId': primarySkillId,
-        if (skillName != null) 'skillName': skillName,
+        'primarySkillId': ?primarySkillId,
+        'skillName': ?skillName,
         if (statContributions.isNotEmpty)
           'statContributions': statContributions,
         'milestones': milestones,
@@ -115,7 +95,7 @@ class ProgressionApi {
       body: {
         'title': title,
         'description': description,
-        if (primarySkillId != null) 'primarySkillId': primarySkillId,
+        'primarySkillId': ?primarySkillId,
         if (statContributions.isNotEmpty)
           'statContributions': statContributions,
       },
@@ -180,7 +160,7 @@ class ProgressionApi {
         'title': title,
         'description': description,
         'difficulty': difficulty,
-        if (milestoneId != null) 'milestoneId': milestoneId,
+        'milestoneId': ?milestoneId,
         if (statContributions.isNotEmpty)
           'statContributions': statContributions,
       },
@@ -238,8 +218,8 @@ class ProgressionApi {
         'title': title,
         'description': description,
         'difficulty': difficulty,
-        if (primarySkillId != null) 'primarySkillId': primarySkillId,
-        if (skillName != null) 'skillName': skillName,
+        'primarySkillId': ?primarySkillId,
+        'skillName': ?skillName,
         if (statContributions.isNotEmpty)
           'statContributions': statContributions,
       },
@@ -253,8 +233,9 @@ class ProgressionApi {
       bearerToken: token,
     );
     final data = response['data'];
-    if (data is! Map<String, dynamic> || data['skills'] is! List)
+    if (data is! Map<String, dynamic> || data['skills'] is! List) {
       throw const ApiException('The server returned invalid skill data.');
+    }
     return _read(data['skills'], LibrarySkill.fromJson);
   }
 
@@ -268,10 +249,10 @@ class ProgressionApi {
     await _client.postJson(
       'skills/acquire',
       body: {
-        if (skillId != null) 'skillId': skillId,
-        if (name != null) 'name': name,
-        if (description != null) 'description': description,
-        if (category != null) 'category': category,
+        'skillId': ?skillId,
+        'name': ?name,
+        'description': ?description,
+        'category': ?category,
       },
       bearerToken: token,
     );
@@ -279,14 +260,16 @@ class ProgressionApi {
 }
 
 List<T> _read<T>(Object? value, T Function(Map<String, dynamic>) read) {
-  if (value is! List)
+  if (value is! List) {
     throw const ApiException('The server returned invalid progression data.');
+  }
   return value
       .map((item) {
-        if (item is! Map<String, dynamic>)
+        if (item is! Map<String, dynamic>) {
           throw const ApiException(
             'The server returned invalid progression data.',
           );
+        }
         return read(item);
       })
       .toList(growable: false);

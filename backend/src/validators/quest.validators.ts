@@ -1,8 +1,5 @@
 import { z } from "zod";
 
-export const activateTemplateBodySchema = z.object({}).strict();
-export type ActivateTemplateBody = z.infer<typeof activateTemplateBodySchema>;
-
 const difficultySchema = z.enum(["EASY", "NORMAL", "MEDIUM", "HARD", "EPIC"]);
 const statSchema = z.enum(["strength", "intelligence", "vitality", "discipline", "perception"]);
 

@@ -234,17 +234,9 @@ void main() {
     await tester.tap(find.text('Sign in'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Quests'));
+    await tester.tap(find.text('Goals'));
     await tester.pumpAndSettle();
-    expect(find.text('QUEST CENTER'), findsOneWidget);
-    expect(find.text('Body'), findsOneWidget);
-
-    await tester.tap(find.text('Activate'));
-    await tester.pumpAndSettle();
-    expect(progressionRepository.activationCount, 1);
-    expect(find.text('Begin Body'), findsOneWidget);
-    await tester.tap(find.text('Complete quest'));
-    await tester.pumpAndSettle();
+    expect(find.text('GOALS'), findsOneWidget);
     expect(find.text('COMPLETED QUESTS'), findsNothing);
 
     await tester.tap(find.text('Skills'));
@@ -259,12 +251,10 @@ void main() {
     await tester.tap(find.text('History'));
     await tester.pumpAndSettle();
     expect(find.text('HISTORY & ANALYTICS'), findsOneWidget);
-    expect(find.text('COMPLETED QUESTS'), findsOneWidget);
-    expect(find.text('Begin Body'), findsOneWidget);
+    expect(find.text('COMPLETED QUESTS'), findsNothing);
 
     await tester.tap(find.text('Dashboard'));
     await tester.pumpAndSettle();
-    expect(find.text('Begin Body'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }
@@ -390,7 +380,6 @@ class _FakeDashboardRepository implements DashboardRepository {
 }
 
 class _FakeProgressionRepository implements ProgressionRepository {
-  int activationCount = 0;
   List<ProgressionQuest> quests = const [];
 
   @override
@@ -405,35 +394,6 @@ class _FakeProgressionRepository implements ProgressionRepository {
       );
 
   @override
-  Future<List<QuestTemplate>> loadTemplates(String accessToken) async => const [
-    QuestTemplate(
-      id: 'body',
-      name: 'Body',
-      description: 'Build physical health.',
-      minimumLevel: 1,
-      milestoneCount: 3,
-      questCount: 9,
-    ),
-  ];
-
-  @override
-  Future<void> activateTemplate(String accessToken, String templateId) async {
-    activationCount++;
-    quests = const [
-      ProgressionQuest(
-        id: 'quest-body-1',
-        title: 'Begin Body',
-        description: 'Start.',
-        type: 'MAIN',
-        difficulty: 'EASY',
-        primarySkillId: 'fitness',
-        completed: false,
-        sourceTemplateId: 'body',
-      ),
-    ];
-  }
-
-  @override
   Future<void> completeQuest(String accessToken, String questId) async {
     quests = quests
         .map(
@@ -446,7 +406,6 @@ class _FakeProgressionRepository implements ProgressionRepository {
                   difficulty: quest.difficulty,
                   primarySkillId: quest.primarySkillId,
                   completed: true,
-                  sourceTemplateId: quest.sourceTemplateId,
                 )
               : quest,
         )
@@ -460,6 +419,7 @@ class _FakeProgressionRepository implements ProgressionRepository {
     required String description,
     String? primarySkillId,
     String? skillName,
+    List<String> statContributions = const [],
     List<Map<String, Object?>> milestones = const [],
   }) async {}
 
@@ -469,10 +429,22 @@ class _FakeProgressionRepository implements ProgressionRepository {
     required String goalId,
     required String title,
     required String description,
+    String? primarySkillId,
+    List<String> statContributions = const [],
   }) async {}
 
   @override
   Future<void> deleteGoal(String accessToken, String goalId) async {}
+
+  @override
+  Future<void> completeGoal(String accessToken, String goalId) async {}
+
+  @override
+  Future<void> completeMilestone(
+    String accessToken,
+    String goalId,
+    String milestoneId,
+  ) async {}
 
   @override
   Future<void> createMilestone(

@@ -107,7 +107,7 @@ class _Avatar extends StatelessWidget {
           : Image.asset(
               path!,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => const ColoredBox(
+              errorBuilder: (_, _, _) => const ColoredBox(
                 color: AppColors.surfaceElevated,
                 child: Icon(Icons.person, color: AppColors.accent),
               ),

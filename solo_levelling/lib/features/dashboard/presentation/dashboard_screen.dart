@@ -46,8 +46,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isRefreshing = false;
   List<ProgressionQuest>? _quests;
   List<ProgressionGoal>? _goals;
-  List<QuestTemplate>? _templates;
-  final Set<String> _activatingTemplateIds = <String>{};
 
   @override
   void initState() {
@@ -81,16 +79,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final structure = progressionRepository == null
           ? null
           : await progressionRepository.loadStructure(token);
-      final templates = progressionRepository == null
-          ? null
-          : await progressionRepository.loadTemplates(token);
       if (!mounted) return;
       setState(() {
         _data = data;
         _errorMessage = null;
         _quests = quests;
         _goals = structure?.goals;
-        _templates = templates;
       });
       widget.onCharacterLoaded?.call(data.character);
     } on ApiException catch (error) {
@@ -171,10 +165,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   goals: _goals ?? const [],
                   skills: data.skills,
                   characterLevel: data.character.level,
-                  templates: _templates ?? const [],
                   onQuestComplete: _completeQuest,
-                  onActivateTemplate: _activateTemplate,
-                  activatingTemplateIds: _activatingTemplateIds,
                 ),
                 const SizedBox(height: 22),
                 _AcquiredSkillsSection(skills: data.skills),
@@ -236,15 +227,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     if (snapshot.connectionState != ConnectionState.done) {
                       return const Center(child: CircularProgressIndicator());
                     }
-                    if (snapshot.hasError)
+                    if (snapshot.hasError) {
                       return const Text(
                         'The skill library could not be loaded.',
                       );
+                    }
                     final skills = snapshot.data ?? const <LibrarySkill>[];
-                    if (character.skillUnlockTokens == 0)
+                    if (character.skillUnlockTokens == 0) {
                       return const Text(
                         'No skill unlock tokens are available yet.',
                       );
+                    }
                     return ListView(
                       shrinkWrap: true,
                       children: [
@@ -293,26 +286,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Future<void> _activateTemplate(String templateId) async {
-    if (_activatingTemplateIds.contains(templateId)) return;
-    setState(() => _activatingTemplateIds.add(templateId));
-    try {
-      await _runProgressionAction(
-        (repository, token) => repository.activateTemplate(token, templateId),
-        reconcileAlreadyActive: true,
-        kind: _ProgressionActionKind.template,
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _activatingTemplateIds.remove(templateId));
-      }
-    }
-  }
-
   Future<void> _runProgressionAction(
     Future<void> Function(ProgressionRepository repository, String token)
     action, {
-    bool reconcileAlreadyActive = false,
     _ProgressionActionKind? kind,
   }) async {
     final repository = widget.progressionRepository;
@@ -350,7 +326,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final notifications = <SystemNotificationData>[
           SystemNotificationData(
             icon: Icons.check_circle_outline,
-            message: 'QUEST COMPLETED\n\n+${xp} XP EARNED',
+            message: 'QUEST COMPLETED\n\n+$xp XP EARNED',
           ),
         ];
         final previousActivityIds = {
@@ -398,29 +374,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
         await SystemNotification.showStack(context, notifications);
         if (mounted) widget.onProgressionChanged?.call();
-      } else if (kind == _ProgressionActionKind.template) {
-        final oldIds = {
-          for (final quest in before?.activeQuests ?? const []) quest.id,
-        };
-        final added = after.activeQuests.where(
-          (quest) => !oldIds.contains(quest.id),
-        );
-        if (added.isNotEmpty) {
-          await SystemNotification.show(
-            context,
-            icon: Icons.assignment_outlined,
-            message: 'NEW QUEST UNLOCKED\n\n${added.first.title}',
-          );
-        }
-        if (mounted) widget.onProgressionChanged?.call();
       }
     } on ApiException catch (error) {
-      if (error.code == 'CONCURRENT_UPDATE' ||
-          (reconcileAlreadyActive && error.code == 'TEMPLATE_ALREADY_ACTIVE')) {
+      if (error.code == 'CONCURRENT_UPDATE') {
         await _loadDashboard(refresh: true);
-      }
-      if (reconcileAlreadyActive && error.code == 'TEMPLATE_ALREADY_ACTIVE') {
-        return;
       }
       if (mounted) setState(() => _errorMessage = error.message);
     } catch (error, stackTrace) {
@@ -433,4 +390,4 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
-enum _ProgressionActionKind { skill, quest, template }
+enum _ProgressionActionKind { skill, quest }

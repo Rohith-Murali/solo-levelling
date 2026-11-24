@@ -6,20 +6,14 @@ class _ActiveQuestsSection extends StatelessWidget {
     required this.goals,
     required this.skills,
     required this.characterLevel,
-    required this.templates,
     required this.onQuestComplete,
-    required this.onActivateTemplate,
-    required this.activatingTemplateIds,
   });
 
   final List<ProgressionQuest> quests;
   final List<ProgressionGoal> goals;
   final List<DashboardSkill> skills;
   final int characterLevel;
-  final List<QuestTemplate> templates;
   final Future<void> Function(String questId) onQuestComplete;
-  final Future<void> Function(String templateId) onActivateTemplate;
-  final Set<String> activatingTemplateIds;
 
   @override
   Widget build(BuildContext context) {
@@ -62,7 +56,7 @@ class _ActiveQuestsSection extends StatelessWidget {
           const _EmptySectionMessage(
             icon: Icons.assignment_outlined,
             title: 'No quests detected.',
-            detail: 'Activate a progression template to begin.',
+            detail: 'Create a quest to begin.',
           )
         else
           for (final quest in items) ...[
@@ -76,6 +70,12 @@ class _ActiveQuestsSection extends StatelessWidget {
                 context: context,
                 builder: (_) => HolographicDialog(
                   title: 'Quest details',
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Close'),
+                    ),
+                  ],
                   child: _QuestCard(
                     quest: quest,
                     reward: reward,
@@ -86,12 +86,6 @@ class _ActiveQuestsSection extends StatelessWidget {
                     },
                     showActions: true,
                   ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Close'),
-                    ),
-                  ],
                 ),
               ),
             ),
@@ -108,16 +102,8 @@ class _ActiveQuestsSection extends StatelessWidget {
                 const _EmptySectionMessage(
                   icon: Icons.assignment_outlined,
                   title: 'No active quests detected.',
-                  detail: 'Activate a progression template to begin your next quest.',
+                  detail: 'Create a goal or side quest to begin.',
                 ),
-                for (final template in templates) ...[
-                  _TemplateCard(
-                    template: template,
-                    onActivate: onActivateTemplate,
-                    isActivating: activatingTemplateIds.contains(template.id),
-                  ),
-                  if (template != templates.last) const SizedBox(height: 10),
-                ],
               ],
             )
           : LayoutBuilder(
@@ -261,60 +247,6 @@ class _QuestCard extends StatelessWidget {
             child: card,
           );
   }
-}
-
-class _TemplateCard extends StatelessWidget {
-  const _TemplateCard({
-    required this.template,
-    required this.onActivate,
-    required this.isActivating,
-  });
-  final QuestTemplate template;
-  final Future<void> Function(String templateId) onActivate;
-  final bool isActivating;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: AppColors.background.withValues(alpha: 0.45),
-      borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: AppColors.border),
-    ),
-    child: Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                template.name,
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                '${template.questCount} quests · ${template.milestoneCount} milestones',
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-        ),
-        OutlinedButton(
-          onPressed: isActivating ? null : () => onActivate(template.id),
-          child: isActivating
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Activate'),
-        ),
-      ],
-    ),
-  );
 }
 
 class _AcquiredSkillsSection extends StatelessWidget {

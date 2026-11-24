@@ -57,14 +57,14 @@ class _GoalsScreenState extends State<GoalsScreen> {
     try {
       final data = await repo.loadStructure(token);
       final dashboard = await widget.dashboardRepository.load(token);
-      if (mounted)
+      if (mounted) {
         setState(() {
           _goals = data.goals;
           _milestones = data.milestones;
           _quests = data.quests;
           _dashboard = dashboard;
         });
-    } on ApiException {
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -127,7 +127,6 @@ class _GoalsScreenState extends State<GoalsScreen> {
       context: context,
       builder: (_) => HolographicDialog(
         title: 'Delete goal',
-        child: Text('Remove “${goal.title}” and its linked quests?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -138,6 +137,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
             child: const Text('Delete'),
           ),
         ],
+        child: Text('Remove “${goal.title}” and its linked quests?'),
       ),
     );
     final repo = widget.repository;
@@ -339,7 +339,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
       final notifications = <SystemNotificationData>[
         SystemNotificationData(
           icon: Icons.check_circle_outline,
-          message: 'QUEST COMPLETED\n\n+${xp} XP EARNED',
+          message: 'QUEST COMPLETED\n\n+$xp XP EARNED',
         ),
       ];
       final previousActivityIds = {
@@ -387,9 +387,10 @@ class _GoalsScreenState extends State<GoalsScreen> {
         widget.onDataChanged();
       }
     } on ApiException catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(error.message)));
+      }
     }
   }
 
@@ -413,9 +414,10 @@ class _GoalsScreenState extends State<GoalsScreen> {
         widget.onDataChanged();
       }
     } on ApiException catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(error.message)));
+      }
     }
   }
 
@@ -436,9 +438,10 @@ class _GoalsScreenState extends State<GoalsScreen> {
         widget.onDataChanged();
       }
     } on ApiException catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(error.message)));
+      }
     }
   }
 
@@ -447,7 +450,6 @@ class _GoalsScreenState extends State<GoalsScreen> {
         context: context,
         builder: (_) => HolographicDialog(
           title: title,
-          child: Text(message),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -458,6 +460,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
               child: const Text('Delete'),
             ),
           ],
+          child: Text(message),
         ),
       ) ??
       false;
@@ -593,6 +596,30 @@ class _GoalDialogState extends State<_GoalDialog> {
   @override
   Widget build(BuildContext context) => HolographicDialog(
     title: widget.goal == null ? 'New goal' : 'Edit goal',
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        onPressed: skillId == null
+            ? null
+            : () {
+                if (title.text.trim().isNotEmpty) {
+                  Navigator.pop(
+                    context,
+                    _GoalInput(
+                      title.text.trim(),
+                      description.text.trim(),
+                      skillId!,
+                      statContributions.toList(growable: false),
+                    ),
+                  );
+                }
+              },
+        child: Text(widget.goal == null ? 'Create' : 'Save'),
+      ),
+    ],
     child: Column(
       children: [
         TextField(
@@ -601,7 +628,7 @@ class _GoalDialogState extends State<_GoalDialog> {
         ),
         const SizedBox(height: 12),
         DropdownButtonFormField<String>(
-          value: skillId,
+          initialValue: skillId,
           decoration: const InputDecoration(labelText: 'Associated skill'),
           items: [
             for (final skill in widget.skills)
@@ -643,29 +670,6 @@ class _GoalDialogState extends State<_GoalDialog> {
         ),
       ],
     ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
-      ),
-      FilledButton(
-        onPressed: skillId == null
-            ? null
-            : () {
-                if (title.text.trim().isNotEmpty)
-                  Navigator.pop(
-                    context,
-                    _GoalInput(
-                      title.text.trim(),
-                      description.text.trim(),
-                      skillId!,
-                      statContributions.toList(growable: false),
-                    ),
-                  );
-              },
-        child: Text(widget.goal == null ? 'Create' : 'Save'),
-      ),
-    ],
   );
 }
 
@@ -818,6 +822,23 @@ class _PairDialogState extends State<_PairDialog> {
   @override
   Widget build(BuildContext context) => HolographicDialog(
     title: widget.title,
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        onPressed: () {
+          if (first.text.trim().isNotEmpty) {
+            Navigator.pop(
+              context,
+              _PairInput(first.text.trim(), second.text.trim()),
+            );
+          }
+        },
+        child: const Text('Save'),
+      ),
+    ],
     child: Column(
       children: [
         TextField(
@@ -832,22 +853,6 @@ class _PairDialogState extends State<_PairDialog> {
         ),
       ],
     ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
-      ),
-      FilledButton(
-        onPressed: () {
-          if (first.text.trim().isNotEmpty)
-            Navigator.pop(
-              context,
-              _PairInput(first.text.trim(), second.text.trim()),
-            );
-        },
-        child: const Text('Save'),
-      ),
-    ],
   );
 }
 
@@ -889,6 +894,28 @@ class _QuestDialogState extends State<_QuestDialog> {
   @override
   Widget build(BuildContext context) => HolographicDialog(
     title: 'Edit quest',
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        onPressed: () {
+          if (title.text.trim().isNotEmpty) {
+            Navigator.pop(
+              context,
+              _QuestInput(
+                title.text.trim(),
+                description.text.trim(),
+                difficulty,
+                milestoneId.isEmpty ? null : milestoneId,
+              ),
+            );
+          }
+        },
+        child: const Text('Save'),
+      ),
+    ],
     child: Column(
       children: [
         TextField(
@@ -929,27 +956,6 @@ class _QuestDialogState extends State<_QuestDialog> {
         ),
       ],
     ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
-      ),
-      FilledButton(
-        onPressed: () {
-          if (title.text.trim().isNotEmpty)
-            Navigator.pop(
-              context,
-              _QuestInput(
-                title.text.trim(),
-                description.text.trim(),
-                difficulty,
-                milestoneId.isEmpty ? null : milestoneId,
-              ),
-            );
-        },
-        child: const Text('Save'),
-      ),
-    ],
   );
 }
 
@@ -998,6 +1004,12 @@ class _GoalDetailDialogState extends State<_GoalDetailDialog> {
   Widget build(BuildContext context) => HolographicDialog(
     title: widget.goal.title,
     compact: true,
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Close'),
+      ),
+    ],
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1138,12 +1150,6 @@ class _GoalDetailDialogState extends State<_GoalDetailDialog> {
         ],
       ],
     ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Close'),
-      ),
-    ],
   );
 }
 
@@ -1284,13 +1290,13 @@ class _QuestTile extends StatelessWidget {
         context: context,
         builder: (_) => HolographicDialog(
           title: 'Quest details',
-          child: _DashboardStyleQuestCard(quest: quest, onComplete: onComplete),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text('Close'),
             ),
           ],
+          child: _DashboardStyleQuestCard(quest: quest, onComplete: onComplete),
         ),
       ),
       trailing: Wrap(

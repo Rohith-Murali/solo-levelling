@@ -9,8 +9,6 @@ export function createQuestRouter(jwtSecret: string) {
   const router = Router();
   const controller = createQuestController(createQuestService());
   router.use(authenticate(jwtSecret));
-  router.get("/templates", controller.templates);
-  router.post("/templates/:templateId/activate", controller.activateTemplate);
   router.post("/goals", validateBody(createGoalBodySchema), controller.createGoal);
   router.patch("/goals/:goalId", validateBody(updateGoalBodySchema), controller.updateGoal);
   router.delete("/goals/:goalId", controller.deleteGoal);

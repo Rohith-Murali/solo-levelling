@@ -3,8 +3,6 @@ import 'progression_data.dart';
 abstract interface class ProgressionRepository {
   Future<List<ProgressionQuest>> loadQuests(String accessToken);
   Future<ProgressionStructure> loadStructure(String accessToken);
-  Future<List<QuestTemplate>> loadTemplates(String accessToken);
-  Future<void> activateTemplate(String accessToken, String templateId);
   Future<void> completeQuest(String accessToken, String questId);
   Future<void> completeMilestone(
     String accessToken,
