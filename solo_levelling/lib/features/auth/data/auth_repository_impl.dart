@@ -10,6 +10,7 @@ class AuthRepositoryImpl implements AuthRepository {
   final AuthApi api;
   final RefreshTokenStorage tokenStorage;
   String? _accessToken;
+  Future<String?>? _refreshInFlight;
 
   @override
   String? get accessToken => _accessToken;
@@ -32,33 +33,14 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<AuthUser?> restoreSession() async {
-    final storedRefreshToken = await tokenStorage.read();
-    if (storedRefreshToken == null) {
-      return null;
-    }
-    var refreshToken = storedRefreshToken;
-
     ApiException? lastTransientError;
-    AuthSession? session;
     for (var attempt = 0; attempt < 3; attempt++) {
       try {
-        session ??= await api.refresh(refreshToken);
-        if (_accessToken != session.accessToken) {
-          await tokenStorage.write(session.refreshToken);
-          _accessToken = session.accessToken;
-        }
-        return await api.getCurrentUser(session.accessToken);
+        final accessToken = await refreshAccessToken();
+        if (accessToken == null) return null;
+        return await api.getCurrentUser(accessToken);
       } on ApiException catch (error) {
         if (error.statusCode == 401) {
-          // Another app instance may have rotated the token while this
-          // startup was restoring its session. Prefer the newer persisted
-          // token before treating the session as invalid.
-          final latestToken = await tokenStorage.read();
-          if (latestToken != null && latestToken != refreshToken) {
-            refreshToken = latestToken;
-            session = null;
-            continue;
-          }
           _accessToken = null;
           await tokenStorage.clear();
           return null;
@@ -76,6 +58,35 @@ class AuthRepositoryImpl implements AuthRepository {
 
     throw lastTransientError ??
         const ApiException('Unable to restore your session.');
+  }
+
+  /// Refreshes the access token once for all requests that observe an expired
+  /// JWT. Refresh token rotation means concurrent refresh calls must share the
+  /// same future, otherwise the first call invalidates the token used by the
+  /// others.
+  Future<String?> refreshAccessToken() {
+    return _refreshInFlight ??= _performRefresh().whenComplete(() {
+      _refreshInFlight = null;
+    });
+  }
+
+  Future<String?> _performRefresh() async {
+    final refreshToken = await tokenStorage.read();
+    if (refreshToken == null) return null;
+
+    try {
+      final session = await api.refresh(refreshToken);
+      await tokenStorage.write(session.refreshToken);
+      _accessToken = session.accessToken;
+      return session.accessToken;
+    } on ApiException catch (error) {
+      if (error.statusCode == 401) {
+        _accessToken = null;
+        await tokenStorage.clear();
+        return null;
+      }
+      rethrow;
+    }
   }
 
   @override
