@@ -101,10 +101,15 @@ class ApiClient {
   ) async {
     try {
       final uri = _baseUri.resolve(path);
-      return await (method == 'GET'
-              ? _client.get(uri, headers: headers)
-              : _client.post(uri, headers: headers, body: jsonEncode(body)))
-          .timeout(const Duration(seconds: 10));
+      final encodedBody = body == null ? null : jsonEncode(body);
+      final response = switch (method) {
+        'GET' => _client.get(uri, headers: headers),
+        'POST' => _client.post(uri, headers: headers, body: encodedBody),
+        'PATCH' => _client.patch(uri, headers: headers, body: encodedBody),
+        'DELETE' => _client.delete(uri, headers: headers),
+        _ => throw ArgumentError.value(method, 'method'),
+      };
+      return await response.timeout(const Duration(seconds: 10));
     } on TimeoutException {
       throw const ApiException('The request timed out.');
     } on http.ClientException {

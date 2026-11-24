@@ -27,6 +27,27 @@ void main() {
     mockClient.close();
   });
 
+  test(
+    'sends PATCH and DELETE requests with their respective methods',
+    () async {
+      final methods = <String>[];
+      final mockClient = MockClient((request) async {
+        methods.add(request.method);
+        return http.Response(jsonEncode({'data': {}}), 200);
+      });
+      final apiClient = ApiClient(
+        baseUri: Uri.parse('http://localhost:3000/api/'),
+        client: mockClient,
+      );
+
+      await apiClient.patchJson('quests/goals/goal-1', body: const {});
+      await apiClient.deleteJson('quests/goals/goal-1');
+
+      expect(methods, ['PATCH', 'DELETE']);
+      mockClient.close();
+    },
+  );
+
   test('maps API error responses to ApiException', () async {
     final mockClient = MockClient((_) async {
       return http.Response(
