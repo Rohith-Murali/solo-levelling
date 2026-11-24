@@ -87,14 +87,14 @@ class _GoalsScreenState extends State<GoalsScreen> {
         statContributions: input.statContributions,
       );
       await _load();
+      if (!mounted) return;
+      await SystemNotification.show(
+        context,
+        icon: Icons.flag,
+        message: 'GOAL UNLOCKED\n\n${input.title}',
+      );
+      if (!mounted) return;
       widget.onDataChanged();
-      if (mounted) {
-        await SystemNotification.show(
-          context,
-          icon: Icons.flag,
-          message: 'GOAL UNLOCKED\n\n${input.title}',
-        );
-      }
     } on ApiException catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -224,14 +224,14 @@ class _GoalsScreenState extends State<GoalsScreen> {
       description: input.second,
     );
     await _load();
+    if (!mounted) return;
+    await SystemNotification.show(
+      context,
+      icon: Icons.flag_outlined,
+      message: 'MILESTONE UNLOCKED\n\n${input.first}',
+    );
+    if (!mounted) return;
     widget.onDataChanged();
-    if (mounted) {
-      await SystemNotification.show(
-        context,
-        icon: Icons.flag_outlined,
-        message: 'MILESTONE UNLOCKED\n\n${input.first}',
-      );
-    }
   }
 
   Future<void> _deleteMilestone(ProgressionMilestone milestone) async {
@@ -298,14 +298,14 @@ class _GoalsScreenState extends State<GoalsScreen> {
         milestoneId: input.milestoneId,
       );
       await _load();
+      if (!mounted) return;
+      await SystemNotification.show(
+        context,
+        icon: Icons.add_task,
+        message: 'QUEST UNLOCKED\n\n${input.title}',
+      );
+      if (!mounted) return;
       widget.onDataChanged();
-      if (mounted) {
-        await SystemNotification.show(
-          context,
-          icon: Icons.add_task,
-          message: 'QUEST UNLOCKED\n\n${input.title}',
-        );
-      }
     } on ApiException catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -336,7 +336,6 @@ class _GoalsScreenState extends State<GoalsScreen> {
     try {
       await repo.completeQuest(token, quest.id);
       await _load();
-      widget.onDataChanged();
       if (!mounted) return;
       final after = _dashboard;
       if (after == null) return;
@@ -392,9 +391,9 @@ class _GoalsScreenState extends State<GoalsScreen> {
         }
       }
       await SystemNotification.showStack(context, notifications);
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      widget.onDataChanged();
     } on ApiException catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -413,15 +412,15 @@ class _GoalsScreenState extends State<GoalsScreen> {
     try {
       await repo.completeMilestone(token, goal.id, milestone.id);
       await _load();
+      if (!mounted) return;
+      await SystemNotification.show(
+        context,
+        icon: Icons.flag,
+        message: 'MILESTONE COMPLETED\n\n${milestone.title}',
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop();
       widget.onDataChanged();
-      if (mounted) {
-        await SystemNotification.show(
-          context,
-          icon: Icons.flag,
-          message: 'MILESTONE COMPLETED\n\n${milestone.title}',
-        );
-        Navigator.of(context).pop();
-      }
     } on ApiException catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -437,15 +436,15 @@ class _GoalsScreenState extends State<GoalsScreen> {
     try {
       await repo.completeGoal(token, goal.id);
       await _load();
+      if (!mounted) return;
+      await SystemNotification.show(
+        context,
+        icon: Icons.emoji_events,
+        message: 'GOAL COMPLETED\n\n${goal.title}',
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop();
       widget.onDataChanged();
-      if (mounted) {
-        await SystemNotification.show(
-          context,
-          icon: Icons.emoji_events,
-          message: 'GOAL COMPLETED\n\n${goal.title}',
-        );
-        Navigator.of(context).pop();
-      }
     } on ApiException catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context)
