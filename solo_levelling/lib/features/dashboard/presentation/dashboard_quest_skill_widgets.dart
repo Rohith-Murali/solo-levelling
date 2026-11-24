@@ -31,13 +31,14 @@ class _ActiveQuestsSection extends StatelessWidget {
         .toList(growable: false);
     final goalSections = <({String title, List<ProgressionQuest> quests})>[
       for (final goal in goals)
-        (
-          title: goal.title,
-          quests: activeQuests
-              .where((q) => q.goalId == goal.id)
-              .take(2)
-              .toList(growable: false),
-        ),
+        if (activeQuests.any((quest) => quest.goalId == goal.id))
+          (
+            title: goal.title,
+            quests: activeQuests
+                .where((q) => q.goalId == goal.id)
+                .take(2)
+                .toList(growable: false),
+          ),
     ];
     final unassigned = activeQuests
         .where((q) => q.goalId == null)
