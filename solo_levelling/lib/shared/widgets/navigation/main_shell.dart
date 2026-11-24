@@ -5,7 +5,6 @@ import '../../../features/dashboard/domain/dashboard_repository.dart';
 import '../../../features/dashboard/presentation/character_status_screen.dart';
 import '../../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../../features/dashboard/presentation/activity_log_screen.dart';
-import '../../../features/progression/presentation/quest_center_screen.dart';
 import '../../../features/progression/presentation/goals_screen.dart';
 import '../../../features/progression/presentation/skill_library_screen.dart';
 import '../../../features/progression/domain/progression_repository.dart';
@@ -55,7 +54,7 @@ class _MainShellState extends State<MainShell> {
   Widget build(BuildContext context) => Scaffold(
     appBar: SystemTopBar(
       character: _character,
-      onCharacterTap: () => _select(4),
+      onCharacterTap: () => _select(3),
     ),
     drawer: SystemDrawer(
       character: _character,
@@ -74,6 +73,7 @@ class _MainShellState extends State<MainShell> {
             accessToken: widget.accessToken,
             onCharacterRequired: widget.onCharacterRequired,
             onViewActivity: () => _select(4),
+            onProgressionChanged: _refreshDashboard,
             progressionRepository: widget.progressionRepository,
             onCharacterLoaded: (character) =>
                 setState(() => _character = character),
@@ -81,7 +81,8 @@ class _MainShellState extends State<MainShell> {
         else
           const SizedBox.shrink(),
         if (_visitedTabs.contains(1))
-          QuestCenterScreen(
+          GoalsScreen(
+            key: ValueKey<int>(_dashboardRevision),
             repository: widget.progressionRepository,
             dashboardRepository: widget.repository,
             accessToken: widget.accessToken,
@@ -91,14 +92,6 @@ class _MainShellState extends State<MainShell> {
         else
           const SizedBox.shrink(),
         if (_visitedTabs.contains(2))
-          GoalsScreen(
-            repository: widget.progressionRepository,
-            accessToken: widget.accessToken,
-            isActive: _selectedIndex == 2,
-          )
-        else
-          const SizedBox.shrink(),
-        if (_visitedTabs.contains(3))
           SkillLibraryScreen(
             dashboardRepository: widget.repository,
             progressionRepository: widget.progressionRepository,
@@ -108,7 +101,7 @@ class _MainShellState extends State<MainShell> {
           )
         else
           const SizedBox.shrink(),
-        if (_visitedTabs.contains(4))
+        if (_visitedTabs.contains(3))
           CharacterStatusScreen(
             repository: widget.repository,
             accessToken: widget.accessToken,
@@ -116,7 +109,7 @@ class _MainShellState extends State<MainShell> {
           )
         else
           const SizedBox.shrink(),
-        if (_visitedTabs.contains(5))
+        if (_visitedTabs.contains(4))
           ActivityLogScreen(
             repository: widget.repository,
             accessToken: widget.accessToken,

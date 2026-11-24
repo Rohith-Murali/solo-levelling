@@ -9,6 +9,7 @@ import '../domain/dashboard_repository.dart';
 import '../../progression/domain/progression_data.dart';
 import '../../progression/domain/progression_repository.dart';
 import '../../../shared/widgets/system_notification.dart';
+import '../../../shared/widgets/holographic_dialog.dart';
 
 part 'dashboard_header_widgets.dart';
 part 'dashboard_quest_skill_widgets.dart';
@@ -21,6 +22,7 @@ class DashboardScreen extends StatefulWidget {
     required this.onCharacterRequired,
     this.onCharacterLoaded,
     this.onViewActivity,
+    this.onProgressionChanged,
     this.progressionRepository,
     super.key,
   });
@@ -30,6 +32,7 @@ class DashboardScreen extends StatefulWidget {
   final VoidCallback onCharacterRequired;
   final ValueChanged<DashboardCharacter>? onCharacterLoaded;
   final VoidCallback? onViewActivity;
+  final VoidCallback? onProgressionChanged;
   final ProgressionRepository? progressionRepository;
 
   @override
@@ -327,6 +330,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     try {
       await action(repository, token);
       await _loadDashboard(refresh: true);
+      widget.onProgressionChanged?.call();
       if (!mounted) return;
       final after = _data;
       if (after == null) return;

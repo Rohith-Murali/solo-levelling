@@ -2,6 +2,8 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../../app/theme/app_colors.dart';
 import '../../../core/network/api_client.dart';
+import '../../dashboard/domain/dashboard_data.dart';
+import '../../dashboard/domain/dashboard_repository.dart';
 import '../../../shared/widgets/holographic_dialog.dart';
 import '../../../shared/widgets/system_notification.dart';
 import '../domain/progression_data.dart';
@@ -10,13 +12,17 @@ import '../domain/progression_repository.dart';
 class GoalsScreen extends StatefulWidget {
   const GoalsScreen({
     required this.repository,
+    required this.dashboardRepository,
     required this.accessToken,
     required this.isActive,
+    required this.onDataChanged,
     super.key,
   });
   final ProgressionRepository? repository;
+  final DashboardRepository dashboardRepository;
   final String? accessToken;
   final bool isActive;
+  final VoidCallback onDataChanged;
   @override
   State<GoalsScreen> createState() => _GoalsScreenState();
 }
@@ -26,6 +32,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
   List<ProgressionMilestone> _milestones = const [];
   List<ProgressionQuest> _quests = const [];
   bool _loading = true;
+  DashboardData? _dashboard;
 
   @override
   void initState() {
@@ -49,11 +56,13 @@ class _GoalsScreenState extends State<GoalsScreen> {
     setState(() => _loading = true);
     try {
       final data = await repo.loadStructure(token);
+      final dashboard = await widget.dashboardRepository.load(token);
       if (mounted)
         setState(() {
           _goals = data.goals;
           _milestones = data.milestones;
           _quests = data.quests;
+          _dashboard = dashboard;
         });
     } on ApiException {
     } finally {
@@ -139,6 +148,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
         onEditQuest: (quest) => _editQuest(goal, quest),
         onDeleteQuest: (quest) => _deleteQuest(goal, quest),
         onCompleteQuest: _completeQuest,
+        onCompleteObjective: _completeObjective,
       ),
     );
   }
@@ -274,25 +284,77 @@ class _GoalsScreenState extends State<GoalsScreen> {
     _load();
   }
 
-  Future<void> _completeQuest(ProgressionQuest quest) async {
+  Future<void> _completeObjective(
+    ProgressionQuest quest,
+    QuestObjective objective,
+  ) async {
     final repo = widget.repository;
     final token = widget.accessToken;
     if (repo == null || token == null) return;
     try {
-      await repo.completeQuest(token, quest.id);
+      await repo.completeObjective(token, quest.id, objective.id);
       await _load();
-      if (mounted) {
-        await SystemNotification.show(
-          context,
-          icon: Icons.assignment_turned_in,
-          message: 'QUEST COMPLETED\n\n${quest.title}',
-        );
-      }
+      widget.onDataChanged();
     } on ApiException catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(error.message)));
       }
+    }
+  }
+
+  Future<void> _completeQuest(ProgressionQuest quest) async {
+    final repo = widget.repository;
+    final token = widget.accessToken;
+    if (repo == null || token == null) return;
+    final before = _dashboard;
+    try {
+      await repo.completeQuest(token, quest.id);
+      await _load();
+      widget.onDataChanged();
+      if (!mounted) return;
+      final after = _dashboard;
+      if (after == null) return;
+      final xp = before == null
+          ? 0
+          : (after.character.totalXp - before.character.totalXp).clamp(
+              0,
+              1 << 30,
+            );
+      final notifications = <SystemNotificationData>[
+        SystemNotificationData(
+          icon: Icons.check_circle_outline,
+          message: 'QUEST COMPLETED\n\n+${xp} XP EARNED',
+        ),
+      ];
+      if (before != null && after.character.level > before.character.level) {
+        notifications.add(
+          SystemNotificationData(
+            icon: Icons.trending_up,
+            message: 'LEVELLED UP\n\nLV ${after.character.level}',
+          ),
+        );
+      }
+      if (before != null) {
+        final oldSkills = {for (final skill in before.skills) skill.id: skill};
+        for (final skill in after.skills) {
+          final oldSkill = oldSkills[skill.id];
+          if (oldSkill != null && skill.level > oldSkill.level) {
+            notifications.add(
+              SystemNotificationData(
+                icon: Icons.auto_awesome,
+                message:
+                    'SKILL ${skill.name.toUpperCase()} LEVELLED UP\n\nLV ${skill.level}',
+              ),
+            );
+          }
+        }
+      }
+      await SystemNotification.showStack(context, notifications);
+    } on ApiException catch (error) {
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
     }
   }
 
@@ -752,6 +814,7 @@ class _GoalDetailDialog extends StatelessWidget {
     required this.onEditQuest,
     required this.onDeleteQuest,
     required this.onCompleteQuest,
+    required this.onCompleteObjective,
   });
   final ProgressionGoal goal;
   final List<ProgressionMilestone> milestones;
@@ -760,6 +823,8 @@ class _GoalDetailDialog extends StatelessWidget {
   final VoidCallback onAddMilestone, onAddQuest;
   final ValueChanged<ProgressionQuest> onEditQuest, onDeleteQuest;
   final Future<void> Function(ProgressionQuest) onCompleteQuest;
+  final Future<void> Function(ProgressionQuest, QuestObjective)
+  onCompleteObjective;
   @override
   Widget build(BuildContext context) => HolographicDialog(
     title: goal.title,
@@ -824,6 +889,7 @@ class _GoalDetailDialog extends StatelessWidget {
             onEditQuest: onEditQuest,
             onDeleteQuest: onDeleteQuest,
             onCompleteQuest: onCompleteQuest,
+            onCompleteObjective: onCompleteObjective,
           ),
         if (quests.any((quest) => quest.milestoneId == null)) ...[
           const SizedBox(height: 12),
@@ -843,6 +909,8 @@ class _GoalDetailDialog extends StatelessWidget {
               onEdit: () => onEditQuest(quest),
               onDelete: () => onDeleteQuest(quest),
               onComplete: () => onCompleteQuest(quest),
+              onCompleteObjective: (objective) =>
+                  onCompleteObjective(quest, objective),
             ),
         ],
       ],
@@ -865,12 +933,15 @@ class _MilestoneTile extends StatelessWidget {
     required this.onEditQuest,
     required this.onDeleteQuest,
     required this.onCompleteQuest,
+    required this.onCompleteObjective,
   });
   final ProgressionMilestone milestone;
   final List<ProgressionQuest> quests;
   final VoidCallback onEdit, onDelete;
   final ValueChanged<ProgressionQuest> onEditQuest, onDeleteQuest;
   final Future<void> Function(ProgressionQuest) onCompleteQuest;
+  final Future<void> Function(ProgressionQuest, QuestObjective)
+  onCompleteObjective;
   @override
   Widget build(BuildContext context) => Container(
     margin: const EdgeInsets.only(bottom: 6),
@@ -930,6 +1001,8 @@ class _MilestoneTile extends StatelessWidget {
             onEdit: () => onEditQuest(quest),
             onDelete: () => onDeleteQuest(quest),
             onComplete: () => onCompleteQuest(quest),
+            onCompleteObjective: (objective) =>
+                onCompleteObjective(quest, objective),
           ),
       ],
     ),
@@ -942,10 +1015,12 @@ class _QuestTile extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     required this.onComplete,
+    required this.onCompleteObjective,
   });
   final ProgressionQuest quest;
   final VoidCallback onEdit, onDelete;
   final Future<void> Function() onComplete;
+  final Future<void> Function(QuestObjective) onCompleteObjective;
   @override
   Widget build(BuildContext context) => Material(
     color: Colors.transparent,
@@ -968,20 +1043,16 @@ class _QuestTile extends StatelessWidget {
         context: context,
         builder: (_) => HolographicDialog(
           title: 'Quest details',
-          child: _DashboardStyleQuestCard(quest: quest, onComplete: onComplete),
+          child: _DashboardStyleQuestCard(
+            quest: quest,
+            onComplete: onComplete,
+            onCompleteObjective: onCompleteObjective,
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text('Close'),
             ),
-            if (!quest.completed)
-              FilledButton(
-                onPressed: () async {
-                  Navigator.pop(context);
-                  await onComplete();
-                },
-                child: const Text('Complete quest'),
-              ),
           ],
         ),
       ),
@@ -1011,9 +1082,11 @@ class _DashboardStyleQuestCard extends StatelessWidget {
   const _DashboardStyleQuestCard({
     required this.quest,
     required this.onComplete,
+    required this.onCompleteObjective,
   });
   final ProgressionQuest quest;
   final Future<void> Function() onComplete;
+  final Future<void> Function(QuestObjective) onCompleteObjective;
 
   @override
   Widget build(BuildContext context) {
@@ -1092,9 +1165,16 @@ class _DashboardStyleQuestCard extends StatelessWidget {
           if (quest.objectives.isNotEmpty) ...[
             const SizedBox(height: 8),
             for (final objective in quest.objectives)
-              Text(
-                '${objective.completed ? '✓' : '○'} ${objective.title}',
-                style: const TextStyle(fontSize: 12, height: 1.6),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: objective.completed
+                      ? null
+                      : () => onCompleteObjective(objective),
+                  child: Text(
+                    '${objective.completed ? '✓' : '○'} ${objective.title}',
+                  ),
+                ),
               ),
           ],
           if (!quest.completed) ...[

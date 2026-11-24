@@ -74,6 +74,30 @@ class _ActiveQuestsSection extends StatelessWidget {
               skillName: skillName(quest),
               onObjectiveComplete: onObjectiveComplete,
               onQuestComplete: onQuestComplete,
+              showActions: false,
+              onTap: () => showDialog<void>(
+                context: context,
+                builder: (_) => HolographicDialog(
+                  title: 'Quest details',
+                  child: _QuestCard(
+                    quest: quest,
+                    reward: reward,
+                    skillName: skillName(quest),
+                    onObjectiveComplete: onObjectiveComplete,
+                    onQuestComplete: (questId) async {
+                      Navigator.pop(context);
+                      await onQuestComplete(questId);
+                    },
+                    showActions: true,
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Close'),
+                    ),
+                  ],
+                ),
+              ),
             ),
             if (quest != items.last) const SizedBox(height: 10),
           ],
@@ -137,6 +161,8 @@ class _QuestCard extends StatelessWidget {
     required this.skillName,
     required this.onObjectiveComplete,
     required this.onQuestComplete,
+    this.showActions = true,
+    this.onTap,
   });
 
   final ProgressionQuest quest;
@@ -145,6 +171,8 @@ class _QuestCard extends StatelessWidget {
   final Future<void> Function(String questId, String objectiveId)
   onObjectiveComplete;
   final Future<void> Function(String questId) onQuestComplete;
+  final bool showActions;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -158,7 +186,7 @@ class _QuestCard extends StatelessWidget {
               .toDouble();
     final type = quest.type == 'MAIN' ? 'MAIN QUEST' : 'SIDE QUEST';
 
-    return Container(
+    final card = Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: AppColors.background.withValues(alpha: 0.45),
@@ -228,7 +256,7 @@ class _QuestCard extends StatelessWidget {
                 _RewardLabel(icon: Icons.auto_awesome, text: skillName!),
             ],
           ),
-          if (quest.objectives.isNotEmpty) ...[
+          if (showActions && quest.objectives.isNotEmpty) ...[
             const SizedBox(height: 6),
             for (final objective in quest.objectives)
               Align(
@@ -243,7 +271,8 @@ class _QuestCard extends StatelessWidget {
                 ),
               ),
           ],
-          if (quest.objectives.every((objective) => objective.completed))
+          if (showActions &&
+              quest.objectives.every((objective) => objective.completed))
             Align(
               alignment: Alignment.centerRight,
               child: FilledButton(
@@ -254,6 +283,13 @@ class _QuestCard extends StatelessWidget {
         ],
       ),
     );
+    return onTap == null
+        ? card
+        : InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: card,
+          );
   }
 }
 
