@@ -61,8 +61,6 @@ export interface ProgressionState {
 export interface QuestCompletion {
   readonly questId: string;
   readonly primarySkillId?: string;
-  readonly requiredObjectiveCount?: number;
-  readonly completedObjectiveCount?: number;
   readonly completedGoal?: boolean;
   readonly completedMilestone?: boolean;
 }

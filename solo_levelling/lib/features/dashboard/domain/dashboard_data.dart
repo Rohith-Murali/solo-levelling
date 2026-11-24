@@ -84,20 +84,13 @@ class DashboardStats {
   final int discipline;
   final int perception;
 
-  factory DashboardStats.fromJson(Map<String, dynamic> json) =>
-      DashboardStats(
-        strength: json['strength'] is int ? json['strength'] as int : 1,
-        intelligence: json['intelligence'] is int
-            ? json['intelligence'] as int
-            : 1,
-        vitality: json['vitality'] is int ? json['vitality'] as int : 1,
-        discipline: json['discipline'] is int
-            ? json['discipline'] as int
-            : 1,
-        perception: json['perception'] is int
-            ? json['perception'] as int
-            : 1,
-      );
+  factory DashboardStats.fromJson(Map<String, dynamic> json) => DashboardStats(
+    strength: json['strength'] is int ? json['strength'] as int : 1,
+    intelligence: json['intelligence'] is int ? json['intelligence'] as int : 1,
+    vitality: json['vitality'] is int ? json['vitality'] as int : 1,
+    discipline: json['discipline'] is int ? json['discipline'] as int : 1,
+    perception: json['perception'] is int ? json['perception'] as int : 1,
+  );
 }
 
 class DashboardStatistics {
@@ -153,8 +146,6 @@ class DashboardQuest {
     required this.characterXpReward,
     required this.primarySkillName,
     required this.skillXpReward,
-    required this.completedObjectives,
-    required this.totalObjectives,
   });
 
   final String id;
@@ -164,8 +155,6 @@ class DashboardQuest {
   final int characterXpReward;
   final String? primarySkillName;
   final int? skillXpReward;
-  final int completedObjectives;
-  final int totalObjectives;
 
   factory DashboardQuest.fromJson(Map<String, dynamic> json) {
     final id = json['id'];
@@ -175,17 +164,13 @@ class DashboardQuest {
     final characterXpReward = json['characterXpReward'];
     final primarySkillName = json['primarySkillName'];
     final skillXpReward = json['skillXpReward'];
-    final completedObjectives = json['completedObjectives'];
-    final totalObjectives = json['totalObjectives'];
     if (id is! String ||
         title is! String ||
         (type != 'MAIN' && type != 'SIDE') ||
         difficulty is! String ||
         characterXpReward is! int ||
         (primarySkillName != null && primarySkillName is! String) ||
-        (skillXpReward != null && skillXpReward is! int) ||
-        completedObjectives is! int ||
-        totalObjectives is! int) {
+        (skillXpReward != null && skillXpReward is! int)) {
       throw const ApiException('The server returned invalid dashboard data.');
     }
 
@@ -197,8 +182,6 @@ class DashboardQuest {
       characterXpReward: characterXpReward,
       primarySkillName: primarySkillName as String?,
       skillXpReward: skillXpReward as int?,
-      completedObjectives: completedObjectives,
-      totalObjectives: totalObjectives,
     );
   }
 }

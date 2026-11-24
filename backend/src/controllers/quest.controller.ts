@@ -110,21 +110,6 @@ export function createQuestController(service: QuestService) {
       response.status(200).json({
         data: { goal: await service.archiveGoal(identity(request), request.params.goalId) },
       }),
-    completeObjective: async (
-      request: Request<{ questId: string; objectiveId: string }>,
-      response: Response,
-    ) =>
-      response
-        .status(200)
-        .json({
-          data: {
-            objective: await service.completeObjective(
-              identity(request),
-              request.params.questId,
-              request.params.objectiveId,
-            ),
-          },
-        }),
     complete: async (
       request: Request<{ questId: string }>,
       response: Response,

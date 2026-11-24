@@ -5,11 +5,6 @@ abstract interface class ProgressionRepository {
   Future<ProgressionStructure> loadStructure(String accessToken);
   Future<List<QuestTemplate>> loadTemplates(String accessToken);
   Future<void> activateTemplate(String accessToken, String templateId);
-  Future<void> completeObjective(
-    String accessToken,
-    String questId,
-    String objectiveId,
-  );
   Future<void> completeQuest(String accessToken, String questId);
   Future<void> createGoal(
     String accessToken, {
@@ -51,7 +46,6 @@ abstract interface class ProgressionRepository {
     required String description,
     required String difficulty,
     String? milestoneId,
-    List<String> objectives,
     List<String> statContributions,
   });
   Future<void> updateGoalQuest(
@@ -62,7 +56,6 @@ abstract interface class ProgressionRepository {
     required String description,
     required String difficulty,
     String? milestoneId,
-    List<String> objectives,
     List<String> statContributions,
   });
   Future<void> deleteGoalQuest(
@@ -77,7 +70,6 @@ abstract interface class ProgressionRepository {
     required String difficulty,
     String? primarySkillId,
     String? skillName,
-    List<String> objectives,
     List<String> statContributions,
   });
   Future<List<LibrarySkill>> loadSkillLibrary(String accessToken);

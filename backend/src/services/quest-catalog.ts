@@ -6,7 +6,7 @@ export interface QuestTemplate {
   readonly description: string;
   readonly minimumLevel: number;
   readonly goal: { readonly title: string; readonly description: string };
-  readonly milestones: readonly { readonly title: string; readonly quests: readonly { readonly title: string; readonly description: string; readonly type: "MAIN" | "SIDE"; readonly difficulty: string; readonly primarySkillId: string; readonly statContributions: readonly string[]; readonly objectives: readonly string[] }[] }[];
+  readonly milestones: readonly { readonly title: string; readonly quests: readonly { readonly title: string; readonly description: string; readonly type: "MAIN" | "SIDE"; readonly difficulty: string; readonly primarySkillId: string; readonly statContributions: readonly string[] }[] }[];
 }
 
 const template = (id: string, name: string, minimumLevel: number, skill: string): QuestTemplate => ({
@@ -21,7 +21,6 @@ const template = (id: string, name: string, minimumLevel: number, skill: string)
       difficulty: questIndex === 0 ? "EASY" : questIndex === 1 ? "NORMAL" : "HARD",
       primarySkillId: skill,
       statContributions: milestoneIndex === 0 ? ["discipline"] : milestoneIndex === 1 ? ["intelligence", "perception"] : ["vitality", "discipline"],
-      objectives: questIndex === 0 ? [] : [`Complete ${verb.toLowerCase()} action`, "Record the result"],
     })),
   })),
 });
@@ -43,7 +42,6 @@ export function activateTemplate(templateId: string) {
       id: randomUUID(), title: quest.title, description: quest.description, type: quest.type,
       difficulty: quest.difficulty, primarySkillId: quest.primarySkillId,
       goalId: goalId, milestoneId: milestoneId, statContributions: [...quest.statContributions],
-      objectives: quest.objectives.map((title) => ({ id: randomUUID(), title, completed: false })),
       completed: false, sourceTemplateId: source.id,
     }));
     return { id: milestoneId, title: milestone.title, description: `${milestone.title} phase of ${source.name}.`, questIds: quests.map((quest) => quest.id), completed: false, quests };

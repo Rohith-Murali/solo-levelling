@@ -427,19 +427,11 @@ class _FakeProgressionRepository implements ProgressionRepository {
         type: 'MAIN',
         difficulty: 'EASY',
         primarySkillId: 'fitness',
-        objectives: [],
         completed: false,
         sourceTemplateId: 'body',
       ),
     ];
   }
-
-  @override
-  Future<void> completeObjective(
-    String accessToken,
-    String questId,
-    String objectiveId,
-  ) async {}
 
   @override
   Future<void> completeQuest(String accessToken, String questId) async {
@@ -453,7 +445,6 @@ class _FakeProgressionRepository implements ProgressionRepository {
                   type: quest.type,
                   difficulty: quest.difficulty,
                   primarySkillId: quest.primarySkillId,
-                  objectives: quest.objectives,
                   completed: true,
                   sourceTemplateId: quest.sourceTemplateId,
                 )
@@ -515,7 +506,6 @@ class _FakeProgressionRepository implements ProgressionRepository {
     required String description,
     required String difficulty,
     String? milestoneId,
-    List<String> objectives = const [],
     List<String> statContributions = const [],
   }) async {}
 
@@ -528,7 +518,6 @@ class _FakeProgressionRepository implements ProgressionRepository {
     required String description,
     required String difficulty,
     String? milestoneId,
-    List<String> objectives = const [],
     List<String> statContributions = const [],
   }) async {}
 
@@ -547,7 +536,6 @@ class _FakeProgressionRepository implements ProgressionRepository {
     required String difficulty,
     String? primarySkillId,
     String? skillName,
-    List<String> objectives = const [],
     List<String> statContributions = const [],
   }) async {}
 

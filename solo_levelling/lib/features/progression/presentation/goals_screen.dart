@@ -148,7 +148,6 @@ class _GoalsScreenState extends State<GoalsScreen> {
         onEditQuest: (quest) => _editQuest(goal, quest),
         onDeleteQuest: (quest) => _deleteQuest(goal, quest),
         onCompleteQuest: _completeQuest,
-        onCompleteObjective: _completeObjective,
       ),
     );
   }
@@ -235,9 +234,6 @@ class _GoalsScreenState extends State<GoalsScreen> {
       description: input.description,
       difficulty: input.difficulty,
       milestoneId: input.milestoneId,
-      objectives: quest.objectives
-          .map((item) => item.title)
-          .toList(growable: false),
       statContributions: quest.statContributions,
     );
     _load();
@@ -282,25 +278,6 @@ class _GoalsScreenState extends State<GoalsScreen> {
     if (!ok || repo == null || token == null) return;
     await repo.deleteGoalQuest(token, goal.id, quest.id);
     _load();
-  }
-
-  Future<void> _completeObjective(
-    ProgressionQuest quest,
-    QuestObjective objective,
-  ) async {
-    final repo = widget.repository;
-    final token = widget.accessToken;
-    if (repo == null || token == null) return;
-    try {
-      await repo.completeObjective(token, quest.id, objective.id);
-      await _load();
-      widget.onDataChanged();
-    } on ApiException catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(error.message)));
-      }
-    }
   }
 
   Future<void> _completeQuest(ProgressionQuest quest) async {
@@ -396,7 +373,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                   Text('GOALS', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 5),
                   const Text(
-                    'Choose the objectives that shape your next level.',
+                    'Choose the milestones and quests that shape your next level.',
                     style: TextStyle(color: AppColors.textSecondary),
                   ),
                 ],
@@ -814,7 +791,6 @@ class _GoalDetailDialog extends StatelessWidget {
     required this.onEditQuest,
     required this.onDeleteQuest,
     required this.onCompleteQuest,
-    required this.onCompleteObjective,
   });
   final ProgressionGoal goal;
   final List<ProgressionMilestone> milestones;
@@ -823,8 +799,6 @@ class _GoalDetailDialog extends StatelessWidget {
   final VoidCallback onAddMilestone, onAddQuest;
   final ValueChanged<ProgressionQuest> onEditQuest, onDeleteQuest;
   final Future<void> Function(ProgressionQuest) onCompleteQuest;
-  final Future<void> Function(ProgressionQuest, QuestObjective)
-  onCompleteObjective;
   @override
   Widget build(BuildContext context) => HolographicDialog(
     title: goal.title,
@@ -889,7 +863,6 @@ class _GoalDetailDialog extends StatelessWidget {
             onEditQuest: onEditQuest,
             onDeleteQuest: onDeleteQuest,
             onCompleteQuest: onCompleteQuest,
-            onCompleteObjective: onCompleteObjective,
           ),
         if (quests.any((quest) => quest.milestoneId == null)) ...[
           const SizedBox(height: 12),
@@ -909,8 +882,6 @@ class _GoalDetailDialog extends StatelessWidget {
               onEdit: () => onEditQuest(quest),
               onDelete: () => onDeleteQuest(quest),
               onComplete: () => onCompleteQuest(quest),
-              onCompleteObjective: (objective) =>
-                  onCompleteObjective(quest, objective),
             ),
         ],
       ],
@@ -933,15 +904,12 @@ class _MilestoneTile extends StatelessWidget {
     required this.onEditQuest,
     required this.onDeleteQuest,
     required this.onCompleteQuest,
-    required this.onCompleteObjective,
   });
   final ProgressionMilestone milestone;
   final List<ProgressionQuest> quests;
   final VoidCallback onEdit, onDelete;
   final ValueChanged<ProgressionQuest> onEditQuest, onDeleteQuest;
   final Future<void> Function(ProgressionQuest) onCompleteQuest;
-  final Future<void> Function(ProgressionQuest, QuestObjective)
-  onCompleteObjective;
   @override
   Widget build(BuildContext context) => Container(
     margin: const EdgeInsets.only(bottom: 6),
@@ -1001,8 +969,6 @@ class _MilestoneTile extends StatelessWidget {
             onEdit: () => onEditQuest(quest),
             onDelete: () => onDeleteQuest(quest),
             onComplete: () => onCompleteQuest(quest),
-            onCompleteObjective: (objective) =>
-                onCompleteObjective(quest, objective),
           ),
       ],
     ),
@@ -1015,12 +981,10 @@ class _QuestTile extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     required this.onComplete,
-    required this.onCompleteObjective,
   });
   final ProgressionQuest quest;
   final VoidCallback onEdit, onDelete;
   final Future<void> Function() onComplete;
-  final Future<void> Function(QuestObjective) onCompleteObjective;
   @override
   Widget build(BuildContext context) => Material(
     color: Colors.transparent,
@@ -1043,11 +1007,7 @@ class _QuestTile extends StatelessWidget {
         context: context,
         builder: (_) => HolographicDialog(
           title: 'Quest details',
-          child: _DashboardStyleQuestCard(
-            quest: quest,
-            onComplete: onComplete,
-            onCompleteObjective: onCompleteObjective,
-          ),
+          child: _DashboardStyleQuestCard(quest: quest, onComplete: onComplete),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -1082,18 +1042,13 @@ class _DashboardStyleQuestCard extends StatelessWidget {
   const _DashboardStyleQuestCard({
     required this.quest,
     required this.onComplete,
-    required this.onCompleteObjective,
   });
   final ProgressionQuest quest;
   final Future<void> Function() onComplete;
-  final Future<void> Function(QuestObjective) onCompleteObjective;
 
   @override
   Widget build(BuildContext context) {
-    final completed = quest.objectives.where((item) => item.completed).length;
-    final total = quest.objectives.length;
-    final progress = total == 0 ? 0.0 : completed / total;
-    final canComplete = quest.objectives.every((item) => item.completed);
+    final progress = quest.completed ? 1.0 : 0.0;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -1156,41 +1111,22 @@ class _DashboardStyleQuestCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '$completed / $total objectives',
+            quest.completed ? 'COMPLETED' : 'ACTIVE',
             style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 11,
             ),
           ),
-          if (quest.objectives.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            for (final objective in quest.objectives)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton(
-                  onPressed: objective.completed
-                      ? null
-                      : () => onCompleteObjective(objective),
-                  child: Text(
-                    '${objective.completed ? '✓' : '○'} ${objective.title}',
-                  ),
-                ),
-              ),
-          ],
           if (!quest.completed) ...[
             const SizedBox(height: 8),
             Align(
               alignment: Alignment.centerRight,
               child: FilledButton(
-                onPressed: canComplete
-                    ? () async {
-                        Navigator.pop(context);
-                        await onComplete();
-                      }
-                    : null,
-                child: Text(
-                  canComplete ? 'Complete quest' : 'Complete objectives',
-                ),
+                onPressed: () async {
+                  Navigator.pop(context);
+                  await onComplete();
+                },
+                child: const Text('Complete quest'),
               ),
             ),
           ],

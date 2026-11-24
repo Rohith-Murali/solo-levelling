@@ -16,12 +16,6 @@ export interface SkillRecord extends StartingSkillRecord {
   status: "ACTIVE" | "INACTIVE";
 }
 
-export interface ObjectiveRecord {
-  id: string;
-  title: string;
-  completed: boolean;
-}
-
 export type CharacterStats = {
   strength: number;
   intelligence: number;
@@ -40,7 +34,6 @@ export interface QuestRecord {
   goalId?: string;
   milestoneId?: string;
   statContributions: (keyof CharacterStats)[];
-  objectives: ObjectiveRecord[];
   completed: boolean;
   completedAt?: Date;
   sourceTemplateId?: string;
@@ -131,12 +124,6 @@ const skillSchema = new Schema<SkillRecord>({
   status: { type: String, enum: ["ACTIVE", "INACTIVE"], required: true },
 }, { _id: false });
 
-const objectiveSchema = new Schema<ObjectiveRecord>({
-  id: { type: String, required: true },
-  title: { type: String, required: true },
-  completed: { type: Boolean, required: true },
-}, { _id: false });
-
 const questSchema = new Schema<QuestRecord>({
   id: { type: String, required: true },
   title: { type: String, required: true },
@@ -147,7 +134,6 @@ const questSchema = new Schema<QuestRecord>({
   goalId: { type: String, required: false },
   milestoneId: { type: String, required: false },
   statContributions: { type: [String], enum: ["strength", "intelligence", "vitality", "discipline", "perception"], required: true, default: [] },
-  objectives: { type: [objectiveSchema], required: true },
   completed: { type: Boolean, required: true },
   completedAt: { type: Date, required: false },
   sourceTemplateId: { type: String, required: false },

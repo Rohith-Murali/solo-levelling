@@ -10,7 +10,6 @@ const questInputSchema = z.object({
   title: z.string().trim().min(1).max(120),
   description: z.string().trim().max(1000).optional(),
   difficulty: difficultySchema.optional(),
-  objectives: z.array(z.string().trim().min(1).max(200)).max(20).optional(),
   statContributions: z.array(statSchema).min(1).max(2).optional(),
 }).strict();
 
@@ -51,14 +50,12 @@ export const updateGoalQuestBodySchema = z.object({
   description: z.string().trim().max(1000).optional(),
   difficulty: difficultySchema.optional(),
   milestoneId: z.string().trim().max(64).nullable().optional(),
-  objectives: z.array(z.string().trim().min(1).max(200)).max(20).optional(),
   statContributions: z.array(statSchema).min(1).max(2).optional(),
 }).strict().refine((body) =>
   body.title !== undefined ||
   body.description !== undefined ||
   body.difficulty !== undefined ||
   body.milestoneId !== undefined ||
-  body.objectives !== undefined ||
   body.statContributions !== undefined,
 "Provide a quest field to update.");
 
@@ -68,6 +65,5 @@ export const createSideQuestBodySchema = z.object({
   difficulty: difficultySchema.optional(),
   primarySkillId: z.string().trim().min(1).max(64).optional(),
   skillName: z.string().trim().min(1).max(80).optional(),
-  objectives: z.array(z.string().trim().min(1).max(200)).max(20).optional(),
   statContributions: z.array(statSchema).min(1).max(2).optional(),
 }).strict().refine((body) => body.primarySkillId || body.skillName, "Choose or create exactly one associated skill.");

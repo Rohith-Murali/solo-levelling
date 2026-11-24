@@ -50,18 +50,6 @@ class ProgressionApi {
     );
   }
 
-  Future<void> completeObjective(
-    String token,
-    String questId,
-    String objectiveId,
-  ) async {
-    await _client.postJson(
-      'quests/$questId/objectives/$objectiveId/complete',
-      body: const {},
-      bearerToken: token,
-    );
-  }
-
   Future<void> completeQuest(String token, String questId) async {
     await _client.postJson(
       'quests/$questId/complete',
@@ -153,7 +141,6 @@ class ProgressionApi {
     required String description,
     required String difficulty,
     String? milestoneId,
-    List<String> objectives = const [],
     List<String> statContributions = const [],
   }) async {
     await _client.postJson(
@@ -163,7 +150,6 @@ class ProgressionApi {
         'description': description,
         'difficulty': difficulty,
         if (milestoneId != null) 'milestoneId': milestoneId,
-        if (objectives.isNotEmpty) 'objectives': objectives,
         if (statContributions.isNotEmpty)
           'statContributions': statContributions,
       },
@@ -179,7 +165,6 @@ class ProgressionApi {
     required String description,
     required String difficulty,
     String? milestoneId,
-    List<String> objectives = const [],
     List<String> statContributions = const [],
   }) async {
     await _client.patchJson(
@@ -189,7 +174,6 @@ class ProgressionApi {
         'description': description,
         'difficulty': difficulty,
         'milestoneId': milestoneId,
-        if (objectives.isNotEmpty) 'objectives': objectives,
         if (statContributions.isNotEmpty)
           'statContributions': statContributions,
       },
@@ -215,7 +199,6 @@ class ProgressionApi {
     required String difficulty,
     String? primarySkillId,
     String? skillName,
-    List<String> objectives = const [],
     List<String> statContributions = const [],
   }) async {
     await _client.postJson(
@@ -226,7 +209,6 @@ class ProgressionApi {
         'difficulty': difficulty,
         if (primarySkillId != null) 'primarySkillId': primarySkillId,
         if (skillName != null) 'skillName': skillName,
-        if (objectives.isNotEmpty) 'objectives': objectives,
         if (statContributions.isNotEmpty)
           'statContributions': statContributions,
       },

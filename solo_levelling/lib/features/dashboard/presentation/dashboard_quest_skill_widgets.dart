@@ -7,7 +7,6 @@ class _ActiveQuestsSection extends StatelessWidget {
     required this.skills,
     required this.characterLevel,
     required this.templates,
-    required this.onObjectiveComplete,
     required this.onQuestComplete,
     required this.onActivateTemplate,
     required this.activatingTemplateIds,
@@ -18,8 +17,6 @@ class _ActiveQuestsSection extends StatelessWidget {
   final List<DashboardSkill> skills;
   final int characterLevel;
   final List<QuestTemplate> templates;
-  final Future<void> Function(String questId, String objectiveId)
-  onObjectiveComplete;
   final Future<void> Function(String questId) onQuestComplete;
   final Future<void> Function(String templateId) onActivateTemplate;
   final Set<String> activatingTemplateIds;
@@ -73,7 +70,6 @@ class _ActiveQuestsSection extends StatelessWidget {
               quest: quest,
               reward: reward,
               skillName: skillName(quest),
-              onObjectiveComplete: onObjectiveComplete,
               onQuestComplete: onQuestComplete,
               showActions: false,
               onTap: () => showDialog<void>(
@@ -84,7 +80,6 @@ class _ActiveQuestsSection extends StatelessWidget {
                     quest: quest,
                     reward: reward,
                     skillName: skillName(quest),
-                    onObjectiveComplete: onObjectiveComplete,
                     onQuestComplete: (questId) async {
                       Navigator.pop(context);
                       await onQuestComplete(questId);
@@ -160,7 +155,6 @@ class _QuestCard extends StatelessWidget {
     required this.quest,
     required this.reward,
     required this.skillName,
-    required this.onObjectiveComplete,
     required this.onQuestComplete,
     this.showActions = true,
     this.onTap,
@@ -169,22 +163,13 @@ class _QuestCard extends StatelessWidget {
   final ProgressionQuest quest;
   final int reward;
   final String? skillName;
-  final Future<void> Function(String questId, String objectiveId)
-  onObjectiveComplete;
   final Future<void> Function(String questId) onQuestComplete;
   final bool showActions;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final completedObjectives = quest.objectives
-        .where((objective) => objective.completed)
-        .length;
-    final progress = quest.objectives.isEmpty
-        ? 0.0
-        : (completedObjectives / quest.objectives.length)
-              .clamp(0.0, 1.0)
-              .toDouble();
+    final progress = quest.completed ? 1.0 : 0.0;
     final type = quest.type == 'MAIN' ? 'MAIN QUEST' : 'SIDE QUEST';
 
     final card = Container(
@@ -241,7 +226,7 @@ class _QuestCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '$completedObjectives / ${quest.objectives.length} objectives',
+            quest.completed ? 'COMPLETED' : 'ACTIVE',
             style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 12,
@@ -257,23 +242,7 @@ class _QuestCard extends StatelessWidget {
                 _RewardLabel(icon: Icons.auto_awesome, text: skillName!),
             ],
           ),
-          if (showActions && quest.objectives.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            for (final objective in quest.objectives)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton(
-                  onPressed: objective.completed
-                      ? null
-                      : () => onObjectiveComplete(quest.id, objective.id),
-                  child: Text(
-                    '${objective.completed ? '✓' : '○'} ${objective.title}',
-                  ),
-                ),
-              ),
-          ],
-          if (showActions &&
-              quest.objectives.every((objective) => objective.completed))
+          if (showActions && !quest.completed)
             Align(
               alignment: Alignment.centerRight,
               child: FilledButton(

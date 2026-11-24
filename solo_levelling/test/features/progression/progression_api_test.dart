@@ -47,7 +47,7 @@ void main() {
   });
 
   test(
-    'parses quests and completes objectives through the progression API',
+    'parses quests and completes quests through the progression API',
     () async {
       final mockClient = MockClient((request) async {
         expect(request.headers['authorization'], 'Bearer token');
@@ -64,13 +64,6 @@ void main() {
                     'difficulty': 'EASY',
                     'primarySkillId': 'focus',
                     'sourceTemplateId': 'mind',
-                    'objectives': [
-                      {
-                        'id': 'objective-1',
-                        'title': 'Start',
-                        'completed': false,
-                      },
-                    ],
                     'completed': false,
                   },
                 ],
@@ -79,10 +72,7 @@ void main() {
             200,
           );
         }
-        expect(
-          request.url.path,
-          '/api/quests/quest-1/objectives/objective-1/complete',
-        );
+        expect(request.url.path, '/api/quests/quest-1/complete');
         return http.Response(jsonEncode({'data': {}}), 200);
       });
       final api = ProgressionApi(
@@ -93,9 +83,8 @@ void main() {
       );
 
       final quests = await api.getQuests('token');
-      expect(quests.single.objectives.single.title, 'Start');
       expect(quests.single.sourceTemplateId, 'mind');
-      await api.completeObjective('token', 'quest-1', 'objective-1');
+      await api.completeQuest('token', 'quest-1');
       mockClient.close();
     },
   );

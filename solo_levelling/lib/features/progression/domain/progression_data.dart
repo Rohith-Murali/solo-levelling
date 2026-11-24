@@ -1,28 +1,5 @@
 import '../../../core/network/api_client.dart';
 
-class QuestObjective {
-  const QuestObjective({
-    required this.id,
-    required this.title,
-    required this.completed,
-  });
-  final String id;
-  final String title;
-  final bool completed;
-
-  factory QuestObjective.fromJson(Map<String, dynamic> json) {
-    final id = json['id'];
-    final title = json['title'];
-    final completed = json['completed'];
-    if (id is! String || title is! String || completed is! bool) {
-      throw const ApiException(
-        'The server returned invalid quest objective data.',
-      );
-    }
-    return QuestObjective(id: id, title: title, completed: completed);
-  }
-}
-
 class ProgressionQuest {
   const ProgressionQuest({
     required this.id,
@@ -34,7 +11,6 @@ class ProgressionQuest {
     this.goalId,
     this.milestoneId,
     this.statContributions = const [],
-    required this.objectives,
     required this.completed,
     required this.sourceTemplateId,
   });
@@ -47,7 +23,6 @@ class ProgressionQuest {
   final String? goalId;
   final String? milestoneId;
   final List<String> statContributions;
-  final List<QuestObjective> objectives;
   final bool completed;
   final String? sourceTemplateId;
 
@@ -58,7 +33,6 @@ class ProgressionQuest {
     final type = json['type'];
     final difficulty = json['difficulty'];
     final primarySkillId = json['primarySkillId'];
-    final objectives = json['objectives'];
     final completed = json['completed'];
     final sourceTemplateId = json['sourceTemplateId'];
     if (id is! String ||
@@ -68,7 +42,6 @@ class ProgressionQuest {
         difficulty is! String ||
         (primarySkillId != null && primarySkillId is! String) ||
         (sourceTemplateId != null && sourceTemplateId is! String) ||
-        objectives is! List ||
         completed is! bool) {
       throw const ApiException('The server returned invalid quest data.');
     }
@@ -88,7 +61,6 @@ class ProgressionQuest {
               growable: false,
             )
           : const [],
-      objectives: _readList(objectives, QuestObjective.fromJson),
       completed: completed,
       sourceTemplateId: sourceTemplateId as String?,
     );
@@ -256,18 +228,4 @@ class LibrarySkill {
       throw const ApiException('The server returned invalid skill data.');
     return LibrarySkill(id: id, name: name, description: description);
   }
-}
-
-List<T> _readList<T>(Object? value, T Function(Map<String, dynamic>) read) {
-  if (value is! List)
-    throw const ApiException('The server returned invalid progression data.');
-  return value
-      .map((item) {
-        if (item is! Map<String, dynamic>)
-          throw const ApiException(
-            'The server returned invalid progression data.',
-          );
-        return read(item);
-      })
-      .toList(growable: false);
 }

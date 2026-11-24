@@ -103,10 +103,11 @@ test("configuration changes formulas and title/rank definitions without engine c
   assert.equal(result.state.skills.focus.xp, 60);
 });
 
-test("rejects incomplete quests and awards no skill XP for an unacquired skill", () => {
+test("completes quests and awards no skill XP for an unacquired skill", () => {
   const engine = new ProgressionEngine();
   const initial = engine.createInitialState("character-1", skill);
-  assert.throws(() => engine.processQuestCompletion(initial, { questId: "quest-1", requiredObjectiveCount: 1, completedObjectiveCount: 0 }));
+  const completed = engine.processQuestCompletion(initial, { questId: "quest-1" });
+  assert.equal(completed.characterXpGained, 100);
   const result = engine.processQuestCompletion(initial, { questId: "quest-2", primarySkillId: "missing" });
   assert.equal(result.characterXpGained, 100);
   assert.equal(result.skillXpGained, 0);
@@ -319,12 +320,9 @@ test("custom side quest normalizes legacy starting skill and completes with stat
       description: "Solve a tactical puzzle.",
       difficulty: "HARD",
       skillName: "Chess",
-      objectives: ["Solve a puzzle"],
       statContributions: ["intelligence", "perception"],
     });
 
-    const objective = quest.objectives[0];
-    await service.completeObjective("user-1", quest.id, objective.id);
     const completion = await service.complete("user-1", quest.id);
 
     assert.equal(completion.alreadyCompleted, false);

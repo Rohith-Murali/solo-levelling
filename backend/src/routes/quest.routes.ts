@@ -23,7 +23,6 @@ export function createQuestRouter(jwtSecret: string) {
   router.post("/goals/:goalId/archive", controller.archiveGoal);
   router.post("/side", validateBody(createSideQuestBodySchema), controller.createSideQuest);
   router.get("/", controller.list);
-  router.post("/:questId/objectives/:objectiveId/complete", controller.completeObjective);
   router.post("/:questId/complete", controller.complete);
   return router;
 }

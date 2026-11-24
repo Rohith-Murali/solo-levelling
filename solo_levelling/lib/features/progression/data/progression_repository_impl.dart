@@ -18,11 +18,6 @@ class ProgressionRepositoryImpl implements ProgressionRepository {
   Future<void> activateTemplate(String token, String templateId) =>
       api.activateTemplate(token, templateId);
   @override
-  Future<void> completeObjective(
-    String token,
-    String questId,
-    String objectiveId,
-  ) => api.completeObjective(token, questId, objectiveId);
   @override
   Future<void> completeQuest(String token, String questId) =>
       api.completeQuest(token, questId);
@@ -97,7 +92,6 @@ class ProgressionRepositoryImpl implements ProgressionRepository {
     required String description,
     required String difficulty,
     String? milestoneId,
-    List<String> objectives = const [],
     List<String> statContributions = const [],
   }) => api.createGoalQuest(
     token,
@@ -106,7 +100,6 @@ class ProgressionRepositoryImpl implements ProgressionRepository {
     description: description,
     difficulty: difficulty,
     milestoneId: milestoneId,
-    objectives: objectives,
     statContributions: statContributions,
   );
   @override
@@ -118,7 +111,6 @@ class ProgressionRepositoryImpl implements ProgressionRepository {
     required String description,
     required String difficulty,
     String? milestoneId,
-    List<String> objectives = const [],
     List<String> statContributions = const [],
   }) => api.updateGoalQuest(
     token,
@@ -128,7 +120,6 @@ class ProgressionRepositoryImpl implements ProgressionRepository {
     description: description,
     difficulty: difficulty,
     milestoneId: milestoneId,
-    objectives: objectives,
     statContributions: statContributions,
   );
   @override
@@ -142,7 +133,6 @@ class ProgressionRepositoryImpl implements ProgressionRepository {
     required String difficulty,
     String? primarySkillId,
     String? skillName,
-    List<String> objectives = const [],
     List<String> statContributions = const [],
   }) => api.createSideQuest(
     token,
@@ -151,7 +141,6 @@ class ProgressionRepositoryImpl implements ProgressionRepository {
     difficulty: difficulty,
     primarySkillId: primarySkillId,
     skillName: skillName,
-    objectives: objectives,
     statContributions: statContributions,
   );
   @override

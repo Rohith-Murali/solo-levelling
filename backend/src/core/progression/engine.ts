@@ -76,10 +76,6 @@ export class ProgressionEngine {
 
   private processCompletion(state: ProgressionState, quest: QuestCompletion, characterXpGained: number, now: Date): ProgressionResult {
     if (state.completedQuestIds.has(quest.questId)) return this.result(state, quest, 0, 0, [], [], [], [], 0, [], true, now);
-    const required = quest.requiredObjectiveCount ?? 0;
-    const completed = quest.completedObjectiveCount ?? 0;
-    if (completed < required) throw new Error("All required objectives must be completed before completing the quest.");
-
     const skill = quest.primarySkillId ? state.skills[quest.primarySkillId] : undefined;
     const skillXpGained = skill ? this.round(characterXpGained * this.config.skillXpMultiplier) : 0;
     const character = {

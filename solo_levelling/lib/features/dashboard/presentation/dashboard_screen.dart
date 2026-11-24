@@ -172,7 +172,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   skills: data.skills,
                   characterLevel: data.character.level,
                   templates: _templates ?? const [],
-                  onObjectiveComplete: _completeObjective,
                   onQuestComplete: _completeQuest,
                   onActivateTemplate: _activateTemplate,
                   activatingTemplateIds: _activatingTemplateIds,
@@ -284,13 +283,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     await _runProgressionAction(
       (repository, token) => repository.acquireSkill(token, skillId: skillId),
       kind: _ProgressionActionKind.skill,
-    );
-  }
-
-  Future<void> _completeObjective(String questId, String objectiveId) async {
-    await _runProgressionAction(
-      (repository, token) =>
-          repository.completeObjective(token, questId, objectiveId),
     );
   }
 

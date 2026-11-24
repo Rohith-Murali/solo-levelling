@@ -201,7 +201,7 @@ export function createQuestService() {
         : { alreadyActive: true, acquiredSkills: currentSkillRecords(nextProgression).filter((skill) => skillEvents.some((event) => event.relatedEntityId === skill.id)) };
     },
 
-    async createGoal(userId: string, input: { title: string; description: string; primarySkillId?: string; skillName?: string; milestones?: Array<{ title: string; description?: string; quests?: Array<{ title: string; description?: string; difficulty?: string; objectives?: string[]; statContributions?: string[] }> }> }) {
+    async createGoal(userId: string, input: { title: string; description: string; primarySkillId?: string; skillName?: string; milestones?: Array<{ title: string; description?: string; quests?: Array<{ title: string; description?: string; difficulty?: string; statContributions?: string[] }> }> }) {
       const user = await User.findById(userId).select("character");
       const character = requireCharacter(user);
       const plain = toPlainCharacterRecord(character);
@@ -232,7 +232,6 @@ export function createQuestService() {
           goalId,
           milestoneId,
           statContributions: (questInput.statContributions ?? []) as (keyof CharacterStats)[],
-          objectives: (questInput.objectives ?? []).map((title) => ({ id: randomUUID(), title, completed: false })),
           completed: false,
         }));
         newQuests.push(...quests);
@@ -307,7 +306,7 @@ export function createQuestService() {
       return goal;
     },
 
-    async createMilestone(userId: string, goalId: string, input: { title: string; description?: string; quests?: Array<{ title: string; description?: string; difficulty?: string; objectives?: string[]; statContributions?: string[] }> }) {
+    async createMilestone(userId: string, goalId: string, input: { title: string; description?: string; quests?: Array<{ title: string; description?: string; difficulty?: string; statContributions?: string[] }> }) {
       const user = await User.findById(userId).select("character");
       const character = requireCharacter(user);
       const goal = (character.goals ?? []).find((candidate) => candidate.id === goalId);
@@ -324,7 +323,6 @@ export function createQuestService() {
         goalId,
         milestoneId,
         statContributions: (quest.statContributions ?? []) as (keyof CharacterStats)[],
-        objectives: (quest.objectives ?? []).map((title) => ({ id: randomUUID(), title, completed: false })),
         completed: false,
       }));
       const milestone: MilestoneRecord = { id: milestoneId, title: input.title, description: input.description?.trim() ? input.description : input.title, questIds: quests.map((quest) => quest.id), completed: false };
@@ -381,7 +379,7 @@ export function createQuestService() {
       return milestone;
     },
 
-    async createGoalQuest(userId: string, goalId: string, input: { title: string; description?: string; difficulty?: string; milestoneId?: string; objectives?: string[]; statContributions?: string[] }) {
+    async createGoalQuest(userId: string, goalId: string, input: { title: string; description?: string; difficulty?: string; milestoneId?: string; statContributions?: string[] }) {
       const user = await User.findById(userId).select("character");
       const character = requireCharacter(user);
       const goal = (character.goals ?? []).find((candidate) => candidate.id === goalId);
@@ -400,7 +398,6 @@ export function createQuestService() {
         goalId,
         ...(input.milestoneId ? { milestoneId: input.milestoneId } : {}),
         statContributions: (input.statContributions ?? []) as (keyof CharacterStats)[],
-        objectives: (input.objectives ?? []).map((title) => ({ id: randomUUID(), title, completed: false })),
         completed: false,
       };
       const milestones = (plain.milestones ?? []).map((candidate) => input.milestoneId === candidate.id
@@ -415,7 +412,7 @@ export function createQuestService() {
       return quest;
     },
 
-    async updateGoalQuest(userId: string, goalId: string, questId: string, input: { title?: string; description?: string; difficulty?: string; milestoneId?: string | null; objectives?: string[]; statContributions?: string[] }) {
+    async updateGoalQuest(userId: string, goalId: string, questId: string, input: { title?: string; description?: string; difficulty?: string; milestoneId?: string | null; statContributions?: string[] }) {
       const user = await User.findById(userId).select("character");
       const character = requireCharacter(user);
       const goal = (character.goals ?? []).find((candidate) => candidate.id === goalId);
@@ -436,9 +433,6 @@ export function createQuestService() {
               ? input.milestoneId === null
                 ? { milestoneId: undefined }
                 : { milestoneId: input.milestoneId }
-              : {}),
-            ...(input.objectives !== undefined
-              ? { objectives: input.objectives.map((title) => ({ id: randomUUID(), title, completed: false })) }
               : {}),
             ...(input.statContributions !== undefined
               ? { statContributions: input.statContributions as (keyof CharacterStats)[] }
@@ -484,7 +478,7 @@ export function createQuestService() {
       return quest;
     },
 
-    async createSideQuest(userId: string, input: { title: string; description?: string; difficulty?: string; primarySkillId?: string; skillName?: string; objectives?: string[]; statContributions?: string[] }) {
+    async createSideQuest(userId: string, input: { title: string; description?: string; difficulty?: string; primarySkillId?: string; skillName?: string; statContributions?: string[] }) {
       const user = await User.findById(userId).select("character");
       const character = requireCharacter(user);
       const plain = toPlainCharacterRecord(character);
@@ -503,7 +497,6 @@ export function createQuestService() {
         difficulty: (input.difficulty ?? "NORMAL").toUpperCase(),
         primarySkillId: skillId,
         statContributions: (input.statContributions ?? []) as (keyof CharacterStats)[],
-        objectives: (input.objectives ?? []).map((title) => ({ id: randomUUID(), title, completed: false })),
         completed: false,
       };
       const skillRecords = fullSkillRecords(plain);
@@ -531,35 +524,10 @@ export function createQuestService() {
     async list(userId: string) {
       const user = await User.findById(userId).select("character");
       const character = requireCharacter(user);
-      return { goals: character.goals ?? [], milestones: character.milestones ?? [], quests: character.quests ?? [] };
-    },
-
-    async completeObjective(userId: string, questId: string, objectiveId: string) {
-      const user = await User.findById(userId).select("character");
-      const character = requireCharacter(user);
-      const quest = (character.quests ?? []).find((candidate) => candidate.id === questId);
-      const objective = quest?.objectives.find((candidate) => candidate.id === objectiveId);
-      if (!quest || !objective) throw new AppError(404, "OBJECTIVE_NOT_FOUND", "Quest objective not found.");
-      if (quest.completed || objective.completed) return quest;
-      objective.completed = true;
       const plainCharacter = toPlainCharacterRecord(character);
-      const updated = await User.findOneAndUpdate({ _id: userId, ...characterVersionFilter(character.version), "character.quests": { $elemMatch: { id: questId, completed: false } } }, { $set: { "character.quests": plainCharacter.quests, "character.version": (character.version ?? 0) + 1, "character.updatedAt": new Date() } }, { new: true, runValidators: true });
-      if (!updated) {
-        const latestUser = await User.findById(userId).select("character");
-        const latestQuest = latestUser?.character?.quests?.find(
-          (candidate) => candidate.id === questId,
-        );
-        if (
-          latestQuest?.completed ||
-          latestQuest?.objectives.some(
-            (candidate) => candidate.id === objectiveId && candidate.completed,
-          )
-        ) {
-          return latestQuest;
-        }
-        throw new AppError(409, "CONCURRENT_UPDATE", "The quest changed. Please retry.");
-      }
-      return quest;
+      const quests = plainCharacter.quests ?? [];
+      await User.updateOne({ _id: userId }, { $unset: { "character.quests.$[].objectives": "" } });
+      return { goals: plainCharacter.goals ?? [], milestones: plainCharacter.milestones ?? [], quests };
     },
 
     async complete(userId: string, questId: string) {
@@ -568,15 +536,7 @@ export function createQuestService() {
       const quest = (character.quests ?? []).find((candidate) => candidate.id === questId);
       if (!quest) throw new AppError(404, "QUEST_NOT_FOUND", "Quest not found.");
       if (quest.completed) return { alreadyCompleted: true, quest, progression: null };
-      const completedObjectives = quest.objectives.filter((objective) => objective.completed).length;
-      if (completedObjectives < quest.objectives.length) {
-        throw new AppError(
-          409,
-          "OBJECTIVES_INCOMPLETE",
-          "Complete all quest objectives before completing this quest.",
-        );
-      }
-      const result = engine.processQuestCompletion(progressionState(character), { questId, ...(quest.primarySkillId ? { primarySkillId: quest.primarySkillId } : {}), requiredObjectiveCount: quest.objectives.length, completedObjectiveCount: completedObjectives });
+      const result = engine.processQuestCompletion(progressionState(character), { questId, ...(quest.primarySkillId ? { primarySkillId: quest.primarySkillId } : {}) });
       const completedAt = new Date();
       const plainCharacter = toPlainCharacterRecord(character);
       const quests = (plainCharacter.quests ?? []).map((candidate) => candidate.id === questId ? { ...candidate, completed: true, completedAt } : candidate);
