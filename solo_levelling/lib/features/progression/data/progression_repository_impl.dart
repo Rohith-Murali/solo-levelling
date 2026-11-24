@@ -9,6 +9,9 @@ class ProgressionRepositoryImpl implements ProgressionRepository {
   Future<List<ProgressionQuest>> loadQuests(String token) =>
       api.getQuests(token);
   @override
+  Future<ProgressionStructure> loadStructure(String token) =>
+      api.getStructure(token);
+  @override
   Future<List<QuestTemplate>> loadTemplates(String token) =>
       api.getTemplates(token);
   @override
@@ -39,6 +42,98 @@ class ProgressionRepositoryImpl implements ProgressionRepository {
     skillName: skillName,
     milestones: milestones,
   );
+  @override
+  Future<void> updateGoal(
+    String token, {
+    required String goalId,
+    required String title,
+    required String description,
+  }) => api.updateGoal(
+    token,
+    goalId: goalId,
+    title: title,
+    description: description,
+  );
+  @override
+  Future<void> deleteGoal(String token, String goalId) =>
+      api.deleteGoal(token, goalId);
+  @override
+  Future<void> createMilestone(
+    String token, {
+    required String goalId,
+    required String title,
+    required String description,
+  }) => api.createMilestone(
+    token,
+    goalId: goalId,
+    title: title,
+    description: description,
+  );
+  @override
+  Future<void> updateMilestone(
+    String token, {
+    required String goalId,
+    required String milestoneId,
+    required String title,
+    required String description,
+  }) => api.updateMilestone(
+    token,
+    goalId: goalId,
+    milestoneId: milestoneId,
+    title: title,
+    description: description,
+  );
+  @override
+  Future<void> deleteMilestone(
+    String token,
+    String goalId,
+    String milestoneId,
+  ) => api.deleteMilestone(token, goalId, milestoneId);
+  @override
+  Future<void> createGoalQuest(
+    String token, {
+    required String goalId,
+    required String title,
+    required String description,
+    required String difficulty,
+    String? milestoneId,
+    List<String> objectives = const [],
+    List<String> statContributions = const [],
+  }) => api.createGoalQuest(
+    token,
+    goalId: goalId,
+    title: title,
+    description: description,
+    difficulty: difficulty,
+    milestoneId: milestoneId,
+    objectives: objectives,
+    statContributions: statContributions,
+  );
+  @override
+  Future<void> updateGoalQuest(
+    String token, {
+    required String goalId,
+    required String questId,
+    required String title,
+    required String description,
+    required String difficulty,
+    String? milestoneId,
+    List<String> objectives = const [],
+    List<String> statContributions = const [],
+  }) => api.updateGoalQuest(
+    token,
+    goalId: goalId,
+    questId: questId,
+    title: title,
+    description: description,
+    difficulty: difficulty,
+    milestoneId: milestoneId,
+    objectives: objectives,
+    statContributions: statContributions,
+  );
+  @override
+  Future<void> deleteGoalQuest(String token, String goalId, String questId) =>
+      api.deleteGoalQuest(token, goalId, questId);
   @override
   Future<void> createSideQuest(
     String token, {

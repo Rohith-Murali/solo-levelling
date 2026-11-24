@@ -3,6 +3,7 @@ part of 'dashboard_screen.dart';
 class _ActiveQuestsSection extends StatelessWidget {
   const _ActiveQuestsSection({
     required this.quests,
+    required this.goals,
     required this.skills,
     required this.characterLevel,
     required this.templates,
@@ -13,6 +14,7 @@ class _ActiveQuestsSection extends StatelessWidget {
   });
 
   final List<ProgressionQuest> quests;
+  final List<ProgressionGoal> goals;
   final List<DashboardSkill> skills;
   final int characterLevel;
   final List<QuestTemplate> templates;
@@ -27,13 +29,19 @@ class _ActiveQuestsSection extends StatelessWidget {
     final activeQuests = quests
         .where((quest) => !quest.completed)
         .toList(growable: false);
-    final mainQuests = activeQuests
-        .where((quest) => quest.type == 'MAIN')
-        .take(3)
-        .toList(growable: false);
-    final sideQuests = activeQuests
-        .where((quest) => quest.type != 'MAIN')
-        .take(3)
+    final goalSections = <({String title, List<ProgressionQuest> quests})>[
+      for (final goal in goals)
+        (
+          title: goal.title,
+          quests: activeQuests
+              .where((q) => q.goalId == goal.id)
+              .take(2)
+              .toList(growable: false),
+        ),
+    ];
+    final unassigned = activeQuests
+        .where((q) => q.goalId == null)
+        .take(2)
         .toList(growable: false);
     final reward = 100 + (50 * (characterLevel - 1));
     String? skillName(ProgressionQuest quest) => skills
@@ -94,19 +102,26 @@ class _ActiveQuestsSection extends StatelessWidget {
             )
           : LayoutBuilder(
               builder: (context, constraints) {
-                final main = questColumn('MAIN QUESTS', mainQuests);
-                final side = questColumn('SIDE QUESTS', sideQuests);
-                if (constraints.maxWidth < 680) {
-                  return Column(
-                    children: [main, const SizedBox(height: 18), side],
-                  );
-                }
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                final sections =
+                    [
+                          ...goalSections,
+                          if (unassigned.isNotEmpty)
+                            (title: 'SIDE QUESTS', quests: unassigned),
+                        ]
+                        .map(
+                          (section) =>
+                              questColumn(section.title, section.quests),
+                        )
+                        .toList();
+                if (sections.isEmpty) return questColumn('QUESTS', const []);
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(child: main),
-                    const SizedBox(width: 16),
-                    SizedBox(width: 250, child: side),
+                    for (var index = 0; index < sections.length; index++) ...[
+                      sections[index],
+                      if (index != sections.length - 1)
+                        const SizedBox(height: 18),
+                    ],
                   ],
                 );
               },

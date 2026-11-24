@@ -30,17 +30,35 @@ class ApiClient {
     return _request('POST', path, body: body, bearerToken: bearerToken);
   }
 
+  Future<Map<String, dynamic>> patchJson(
+    String path, {
+    required Map<String, Object?> body,
+    String? bearerToken,
+  }) async {
+    return _request('PATCH', path, body: body, bearerToken: bearerToken);
+  }
+
+  Future<Map<String, dynamic>> deleteJson(
+    String path, {
+    String? bearerToken,
+  }) async {
+    return _request('DELETE', path, bearerToken: bearerToken);
+  }
+
   Future<Map<String, dynamic>> _request(
     String method,
     String path, {
     Map<String, Object?>? body,
     String? bearerToken,
   }) async {
-    if (method != 'GET' && method != 'POST') {
+    if (method != 'GET' &&
+        method != 'POST' &&
+        method != 'PATCH' &&
+        method != 'DELETE') {
       throw ArgumentError.value(
         method,
         'method',
-        'Only GET and POST are supported.',
+        'Only GET, POST, PATCH, and DELETE are supported.',
       );
     }
 
@@ -56,11 +74,23 @@ class ApiClient {
 
     try {
       final uri = _baseUri.resolve(normalizedPath);
-      response =
-          await (method == 'GET'
-                  ? _client.get(uri, headers: headers)
-                  : _client.post(uri, headers: headers, body: jsonEncode(body)))
-              .timeout(const Duration(seconds: 10));
+      if (method == 'GET') {
+        response = await _client
+            .get(uri, headers: headers)
+            .timeout(const Duration(seconds: 10));
+      } else if (method == 'DELETE') {
+        response = await _client
+            .delete(uri, headers: headers)
+            .timeout(const Duration(seconds: 10));
+      } else if (method == 'PATCH') {
+        response = await _client
+            .patch(uri, headers: headers, body: jsonEncode(body))
+            .timeout(const Duration(seconds: 10));
+      } else {
+        response = await _client
+            .post(uri, headers: headers, body: jsonEncode(body))
+            .timeout(const Duration(seconds: 10));
+      }
     } on TimeoutException {
       throw const ApiException('The request timed out.');
     } on http.ClientException {

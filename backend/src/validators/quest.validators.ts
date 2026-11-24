@@ -29,8 +29,38 @@ export const createGoalBodySchema = z.object({
 export const createMilestoneBodySchema = z.object({
   title: z.string().trim().min(1).max(120),
   description: z.string().trim().max(1000).optional(),
-  quests: z.array(questInputSchema).min(1).max(50),
+  quests: z.array(questInputSchema).max(50).optional().default([]),
 }).strict();
+
+export const updateGoalBodySchema = z.object({
+  title: z.string().trim().min(1).max(120).optional(),
+  description: z.string().trim().max(1000).optional(),
+}).strict().refine((body) => body.title !== undefined || body.description !== undefined, "Provide a goal field to update.");
+
+export const updateMilestoneBodySchema = z.object({
+  title: z.string().trim().min(1).max(120).optional(),
+  description: z.string().trim().max(1000).optional(),
+}).strict().refine((body) => body.title !== undefined || body.description !== undefined, "Provide a milestone field to update.");
+
+export const createGoalQuestBodySchema = questInputSchema.extend({
+  milestoneId: z.string().trim().min(1).max(64).optional(),
+}).strict();
+
+export const updateGoalQuestBodySchema = z.object({
+  title: z.string().trim().min(1).max(120).optional(),
+  description: z.string().trim().max(1000).optional(),
+  difficulty: difficultySchema.optional(),
+  milestoneId: z.string().trim().max(64).nullable().optional(),
+  objectives: z.array(z.string().trim().min(1).max(200)).max(20).optional(),
+  statContributions: z.array(statSchema).min(1).max(2).optional(),
+}).strict().refine((body) =>
+  body.title !== undefined ||
+  body.description !== undefined ||
+  body.difficulty !== undefined ||
+  body.milestoneId !== undefined ||
+  body.objectives !== undefined ||
+  body.statContributions !== undefined,
+"Provide a quest field to update.");
 
 export const createSideQuestBodySchema = z.object({
   title: z.string().trim().min(1).max(120),

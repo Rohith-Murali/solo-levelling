@@ -356,6 +356,7 @@ class _FakeDashboardRepository implements DashboardRepository {
         currentLevelXp: 0,
         xpToNextLevel: 100,
         skillUnlockTokens: 0,
+        stats: DashboardStats(),
       ),
       statistics: DashboardStatistics(
         completedQuestCount: 0,
@@ -394,6 +395,14 @@ class _FakeProgressionRepository implements ProgressionRepository {
 
   @override
   Future<List<ProgressionQuest>> loadQuests(String accessToken) async => quests;
+
+  @override
+  Future<ProgressionStructure> loadStructure(String accessToken) async =>
+      ProgressionStructure(
+        goals: const [],
+        milestones: const [],
+        quests: quests,
+      );
 
   @override
   Future<List<QuestTemplate>> loadTemplates(String accessToken) async => const [
@@ -452,6 +461,95 @@ class _FakeProgressionRepository implements ProgressionRepository {
         )
         .toList(growable: false);
   }
+
+  @override
+  Future<void> createGoal(
+    String accessToken, {
+    required String title,
+    required String description,
+    String? primarySkillId,
+    String? skillName,
+    List<Map<String, Object?>> milestones = const [],
+  }) async {}
+
+  @override
+  Future<void> updateGoal(
+    String accessToken, {
+    required String goalId,
+    required String title,
+    required String description,
+  }) async {}
+
+  @override
+  Future<void> deleteGoal(String accessToken, String goalId) async {}
+
+  @override
+  Future<void> createMilestone(
+    String accessToken, {
+    required String goalId,
+    required String title,
+    required String description,
+  }) async {}
+
+  @override
+  Future<void> updateMilestone(
+    String accessToken, {
+    required String goalId,
+    required String milestoneId,
+    required String title,
+    required String description,
+  }) async {}
+
+  @override
+  Future<void> deleteMilestone(
+    String accessToken,
+    String goalId,
+    String milestoneId,
+  ) async {}
+
+  @override
+  Future<void> createGoalQuest(
+    String accessToken, {
+    required String goalId,
+    required String title,
+    required String description,
+    required String difficulty,
+    String? milestoneId,
+    List<String> objectives = const [],
+    List<String> statContributions = const [],
+  }) async {}
+
+  @override
+  Future<void> updateGoalQuest(
+    String accessToken, {
+    required String goalId,
+    required String questId,
+    required String title,
+    required String description,
+    required String difficulty,
+    String? milestoneId,
+    List<String> objectives = const [],
+    List<String> statContributions = const [],
+  }) async {}
+
+  @override
+  Future<void> deleteGoalQuest(
+    String accessToken,
+    String goalId,
+    String questId,
+  ) async {}
+
+  @override
+  Future<void> createSideQuest(
+    String accessToken, {
+    required String title,
+    required String description,
+    required String difficulty,
+    String? primarySkillId,
+    String? skillName,
+    List<String> objectives = const [],
+    List<String> statContributions = const [],
+  }) async {}
 
   @override
   Future<List<LibrarySkill>> loadSkillLibrary(

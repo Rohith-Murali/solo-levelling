@@ -80,11 +80,13 @@ class ProgressionQuest {
       difficulty: difficulty,
       primarySkillId: primarySkillId as String?,
       goalId: json['goalId'] is String ? json['goalId'] as String : null,
-      milestoneId: json['milestoneId'] is String ? json['milestoneId'] as String : null,
+      milestoneId: json['milestoneId'] is String
+          ? json['milestoneId'] as String
+          : null,
       statContributions: json['statContributions'] is List
-          ? (json['statContributions'] as List)
-              .whereType<String>()
-              .toList(growable: false)
+          ? (json['statContributions'] as List).whereType<String>().toList(
+              growable: false,
+            )
           : const [],
       objectives: _readList(objectives, QuestObjective.fromJson),
       completed: completed,
@@ -135,6 +137,105 @@ class QuestTemplate {
       questCount: questCount,
     );
   }
+}
+
+class ProgressionGoal {
+  const ProgressionGoal({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.primarySkillId,
+    required this.milestoneIds,
+    required this.completed,
+    required this.status,
+  });
+  final String id;
+  final String title;
+  final String description;
+  final String primarySkillId;
+  final List<String> milestoneIds;
+  final bool completed;
+  final String status;
+
+  factory ProgressionGoal.fromJson(Map<String, dynamic> json) {
+    final id = json['id'];
+    final title = json['title'];
+    final description = json['description'];
+    final primarySkillId = json['primarySkillId'];
+    final milestoneIds = json['milestoneIds'];
+    final completed = json['completed'];
+    var status = json['status'];
+    if (id is! String ||
+        title is! String ||
+        description is! String ||
+        primarySkillId is! String ||
+        milestoneIds is! List ||
+        completed is! bool) {
+      throw const ApiException('The server returned invalid goal data.');
+    }
+    status = status is String
+        ? status
+        : completed == true
+        ? 'COMPLETED'
+        : 'ACTIVE';
+    return ProgressionGoal(
+      id: id,
+      title: title,
+      description: description,
+      primarySkillId: primarySkillId,
+      milestoneIds: milestoneIds.whereType<String>().toList(growable: false),
+      completed: completed,
+      status: status,
+    );
+  }
+}
+
+class ProgressionMilestone {
+  const ProgressionMilestone({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.questIds,
+    required this.completed,
+  });
+  final String id;
+  final String title;
+  final String description;
+  final List<String> questIds;
+  final bool completed;
+
+  factory ProgressionMilestone.fromJson(Map<String, dynamic> json) {
+    final id = json['id'];
+    final title = json['title'];
+    final description = json['description'];
+    final questIds = json['questIds'];
+    final completed = json['completed'];
+    if (id is! String ||
+        title is! String ||
+        description is! String ||
+        questIds is! List ||
+        completed is! bool) {
+      throw const ApiException('The server returned invalid milestone data.');
+    }
+    return ProgressionMilestone(
+      id: id,
+      title: title,
+      description: description,
+      questIds: questIds.whereType<String>().toList(growable: false),
+      completed: completed,
+    );
+  }
+}
+
+class ProgressionStructure {
+  const ProgressionStructure({
+    required this.goals,
+    required this.milestones,
+    required this.quests,
+  });
+  final List<ProgressionGoal> goals;
+  final List<ProgressionMilestone> milestones;
+  final List<ProgressionQuest> quests;
 }
 
 class LibrarySkill {

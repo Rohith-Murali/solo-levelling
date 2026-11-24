@@ -42,6 +42,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isLoading = true;
   bool _isRefreshing = false;
   List<ProgressionQuest>? _quests;
+  List<ProgressionGoal>? _goals;
   List<QuestTemplate>? _templates;
   final Set<String> _activatingTemplateIds = <String>{};
 
@@ -74,6 +75,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final quests = progressionRepository == null
           ? null
           : await progressionRepository.loadQuests(token);
+      final structure = progressionRepository == null
+          ? null
+          : await progressionRepository.loadStructure(token);
       final templates = progressionRepository == null
           ? null
           : await progressionRepository.loadTemplates(token);
@@ -82,6 +86,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _data = data;
         _errorMessage = null;
         _quests = quests;
+        _goals = structure?.goals;
         _templates = templates;
       });
       widget.onCharacterLoaded?.call(data.character);
@@ -160,6 +165,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const SizedBox(height: 22),
                 _ActiveQuestsSection(
                   quests: _quests ?? const [],
+                  goals: _goals ?? const [],
                   skills: data.skills,
                   characterLevel: data.character.level,
                   templates: _templates ?? const [],

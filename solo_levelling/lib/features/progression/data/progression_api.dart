@@ -8,9 +8,25 @@ class ProgressionApi {
   Future<List<ProgressionQuest>> getQuests(String token) async {
     final response = await _client.getJson('quests', bearerToken: token);
     final data = response['data'];
-    if (data is! Map<String, dynamic> || data['quests'] is! List)
+    if (data is! Map<String, dynamic> || data['quests'] is! List) {
       throw const ApiException('The server returned invalid quest data.');
+    }
     return _read(data['quests'], ProgressionQuest.fromJson);
+  }
+
+  Future<ProgressionStructure> getStructure(String token) async {
+    final response = await _client.getJson('quests', bearerToken: token);
+    final data = response['data'];
+    if (data is! Map<String, dynamic> ||
+        data['goals'] is! List ||
+        data['milestones'] is! List ||
+        data['quests'] is! List)
+      throw const ApiException('The server returned invalid quest data.');
+    return ProgressionStructure(
+      goals: _read(data['goals'], ProgressionGoal.fromJson),
+      milestones: _read(data['milestones'], ProgressionMilestone.fromJson),
+      quests: _read(data['quests'], ProgressionQuest.fromJson),
+    );
   }
 
   Future<List<QuestTemplate>> getTemplates(String token) async {
@@ -75,6 +91,123 @@ class ProgressionApi {
     );
   }
 
+  Future<void> updateGoal(
+    String token, {
+    required String goalId,
+    required String title,
+    required String description,
+  }) async {
+    await _client.patchJson(
+      'quests/goals/$goalId',
+      body: {'title': title, 'description': description},
+      bearerToken: token,
+    );
+  }
+
+  Future<void> deleteGoal(String token, String goalId) async {
+    await _client.deleteJson('quests/goals/$goalId', bearerToken: token);
+  }
+
+  Future<void> createMilestone(
+    String token, {
+    required String goalId,
+    required String title,
+    required String description,
+  }) async {
+    await _client.postJson(
+      'quests/goals/$goalId/milestones',
+      body: {'title': title, 'description': description, 'quests': const []},
+      bearerToken: token,
+    );
+  }
+
+  Future<void> updateMilestone(
+    String token, {
+    required String goalId,
+    required String milestoneId,
+    required String title,
+    required String description,
+  }) async {
+    await _client.patchJson(
+      'quests/goals/$goalId/milestones/$milestoneId',
+      body: {'title': title, 'description': description},
+      bearerToken: token,
+    );
+  }
+
+  Future<void> deleteMilestone(
+    String token,
+    String goalId,
+    String milestoneId,
+  ) async {
+    await _client.deleteJson(
+      'quests/goals/$goalId/milestones/$milestoneId',
+      bearerToken: token,
+    );
+  }
+
+  Future<void> createGoalQuest(
+    String token, {
+    required String goalId,
+    required String title,
+    required String description,
+    required String difficulty,
+    String? milestoneId,
+    List<String> objectives = const [],
+    List<String> statContributions = const [],
+  }) async {
+    await _client.postJson(
+      'quests/goals/$goalId/quests',
+      body: {
+        'title': title,
+        'description': description,
+        'difficulty': difficulty,
+        if (milestoneId != null) 'milestoneId': milestoneId,
+        if (objectives.isNotEmpty) 'objectives': objectives,
+        if (statContributions.isNotEmpty)
+          'statContributions': statContributions,
+      },
+      bearerToken: token,
+    );
+  }
+
+  Future<void> updateGoalQuest(
+    String token, {
+    required String goalId,
+    required String questId,
+    required String title,
+    required String description,
+    required String difficulty,
+    String? milestoneId,
+    List<String> objectives = const [],
+    List<String> statContributions = const [],
+  }) async {
+    await _client.patchJson(
+      'quests/goals/$goalId/quests/$questId',
+      body: {
+        'title': title,
+        'description': description,
+        'difficulty': difficulty,
+        'milestoneId': milestoneId,
+        if (objectives.isNotEmpty) 'objectives': objectives,
+        if (statContributions.isNotEmpty)
+          'statContributions': statContributions,
+      },
+      bearerToken: token,
+    );
+  }
+
+  Future<void> deleteGoalQuest(
+    String token,
+    String goalId,
+    String questId,
+  ) async {
+    await _client.deleteJson(
+      'quests/goals/$goalId/quests/$questId',
+      bearerToken: token,
+    );
+  }
+
   Future<void> createSideQuest(
     String token, {
     required String title,
@@ -93,8 +226,9 @@ class ProgressionApi {
         'difficulty': difficulty,
         if (primarySkillId != null) 'primarySkillId': primarySkillId,
         if (skillName != null) 'skillName': skillName,
-        'objectives': objectives,
-        'statContributions': statContributions,
+        if (objectives.isNotEmpty) 'objectives': objectives,
+        if (statContributions.isNotEmpty)
+          'statContributions': statContributions,
       },
       bearerToken: token,
     );
