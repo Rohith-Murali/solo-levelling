@@ -53,6 +53,7 @@ export interface GoalRecord {
   title: string;
   description: string;
   primarySkillId: string;
+  statContributions?: (keyof CharacterStats)[];
   milestoneIds: string[];
   completed: boolean;
   status: "ACTIVE" | "COMPLETED" | "ARCHIVED";
@@ -153,6 +154,7 @@ const goalSchema = new Schema<GoalRecord>({
   title: { type: String, required: true },
   description: { type: String, required: true },
   primarySkillId: { type: String, required: true, default: "" },
+  statContributions: { type: [String], enum: ["strength", "intelligence", "vitality", "discipline", "perception"], required: false, default: [] },
   milestoneIds: { type: [String], required: true },
   completed: { type: Boolean, required: true },
   status: { type: String, enum: ["ACTIVE", "COMPLETED", "ARCHIVED"], required: true, default: "ACTIVE" },

@@ -110,6 +110,14 @@ export function createQuestController(service: QuestService) {
       response.status(200).json({
         data: { goal: await service.archiveGoal(identity(request), request.params.goalId) },
       }),
+    completeMilestone: async (
+      request: Request<{ goalId: string; milestoneId: string }>,
+      response: Response,
+    ) => response.status(200).json({ data: { milestone: await service.completeMilestone(identity(request), request.params.goalId, request.params.milestoneId) } }),
+    completeGoal: async (
+      request: Request<{ goalId: string }>,
+      response: Response,
+    ) => response.status(200).json({ data: { goal: await service.completeGoal(identity(request), request.params.goalId) } }),
     complete: async (
       request: Request<{ questId: string }>,
       response: Response,

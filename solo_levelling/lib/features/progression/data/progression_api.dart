@@ -58,12 +58,33 @@ class ProgressionApi {
     );
   }
 
+  Future<void> completeMilestone(
+    String token,
+    String goalId,
+    String milestoneId,
+  ) async {
+    await _client.postJson(
+      'quests/goals/$goalId/milestones/$milestoneId/complete',
+      body: const {},
+      bearerToken: token,
+    );
+  }
+
+  Future<void> completeGoal(String token, String goalId) async {
+    await _client.postJson(
+      'quests/goals/$goalId/complete',
+      body: const {},
+      bearerToken: token,
+    );
+  }
+
   Future<void> createGoal(
     String token, {
     required String title,
     required String description,
     String? primarySkillId,
     String? skillName,
+    List<String> statContributions = const [],
     List<Map<String, Object?>> milestones = const [],
   }) async {
     await _client.postJson(
@@ -73,6 +94,8 @@ class ProgressionApi {
         'description': description,
         if (primarySkillId != null) 'primarySkillId': primarySkillId,
         if (skillName != null) 'skillName': skillName,
+        if (statContributions.isNotEmpty)
+          'statContributions': statContributions,
         'milestones': milestones,
       },
       bearerToken: token,
@@ -84,10 +107,18 @@ class ProgressionApi {
     required String goalId,
     required String title,
     required String description,
+    String? primarySkillId,
+    List<String> statContributions = const [],
   }) async {
     await _client.patchJson(
       'quests/goals/$goalId',
-      body: {'title': title, 'description': description},
+      body: {
+        'title': title,
+        'description': description,
+        if (primarySkillId != null) 'primarySkillId': primarySkillId,
+        if (statContributions.isNotEmpty)
+          'statContributions': statContributions,
+      },
       bearerToken: token,
     );
   }

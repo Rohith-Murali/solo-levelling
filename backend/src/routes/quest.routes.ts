@@ -21,6 +21,8 @@ export function createQuestRouter(jwtSecret: string) {
   router.patch("/goals/:goalId/quests/:questId", validateBody(updateGoalQuestBodySchema), controller.updateGoalQuest);
   router.delete("/goals/:goalId/quests/:questId", controller.deleteGoalQuest);
   router.post("/goals/:goalId/archive", controller.archiveGoal);
+  router.post("/goals/:goalId/milestones/:milestoneId/complete", controller.completeMilestone);
+  router.post("/goals/:goalId/complete", controller.completeGoal);
   router.post("/side", validateBody(createSideQuestBodySchema), controller.createSideQuest);
   router.get("/", controller.list);
   router.post("/:questId/complete", controller.complete);

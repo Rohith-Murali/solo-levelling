@@ -22,12 +22,22 @@ class ProgressionRepositoryImpl implements ProgressionRepository {
   Future<void> completeQuest(String token, String questId) =>
       api.completeQuest(token, questId);
   @override
+  Future<void> completeMilestone(
+    String token,
+    String goalId,
+    String milestoneId,
+  ) => api.completeMilestone(token, goalId, milestoneId);
+  @override
+  Future<void> completeGoal(String token, String goalId) =>
+      api.completeGoal(token, goalId);
+  @override
   Future<void> createGoal(
     String token, {
     required String title,
     required String description,
     String? primarySkillId,
     String? skillName,
+    List<String> statContributions = const [],
     List<Map<String, Object?>> milestones = const [],
   }) => api.createGoal(
     token,
@@ -35,6 +45,7 @@ class ProgressionRepositoryImpl implements ProgressionRepository {
     description: description,
     primarySkillId: primarySkillId,
     skillName: skillName,
+    statContributions: statContributions,
     milestones: milestones,
   );
   @override
@@ -43,11 +54,15 @@ class ProgressionRepositoryImpl implements ProgressionRepository {
     required String goalId,
     required String title,
     required String description,
+    String? primarySkillId,
+    List<String> statContributions = const [],
   }) => api.updateGoal(
     token,
     goalId: goalId,
     title: title,
     description: description,
+    primarySkillId: primarySkillId,
+    statContributions: statContributions,
   );
   @override
   Future<void> deleteGoal(String token, String goalId) =>

@@ -6,12 +6,19 @@ abstract interface class ProgressionRepository {
   Future<List<QuestTemplate>> loadTemplates(String accessToken);
   Future<void> activateTemplate(String accessToken, String templateId);
   Future<void> completeQuest(String accessToken, String questId);
+  Future<void> completeMilestone(
+    String accessToken,
+    String goalId,
+    String milestoneId,
+  );
+  Future<void> completeGoal(String accessToken, String goalId);
   Future<void> createGoal(
     String accessToken, {
     required String title,
     required String description,
     String? primarySkillId,
     String? skillName,
+    List<String> statContributions,
     List<Map<String, Object?>> milestones,
   });
   Future<void> updateGoal(
@@ -19,6 +26,8 @@ abstract interface class ProgressionRepository {
     required String goalId,
     required String title,
     required String description,
+    String? primarySkillId,
+    List<String> statContributions,
   });
   Future<void> deleteGoal(String accessToken, String goalId);
   Future<void> createMilestone(

@@ -18,6 +18,7 @@ export const createGoalBodySchema = z.object({
   description: z.string().trim().max(1000).optional().default(""),
   primarySkillId: z.string().trim().min(1).max(64).optional(),
   skillName: z.string().trim().min(1).max(80).optional(),
+  statContributions: z.array(statSchema).min(1).max(2).optional(),
   milestones: z.array(z.object({
     title: z.string().trim().min(1).max(120),
     description: z.string().trim().max(1000).optional(),
@@ -34,6 +35,8 @@ export const createMilestoneBodySchema = z.object({
 export const updateGoalBodySchema = z.object({
   title: z.string().trim().min(1).max(120).optional(),
   description: z.string().trim().max(1000).optional(),
+  primarySkillId: z.string().trim().min(1).max(64).optional(),
+  statContributions: z.array(statSchema).min(1).max(2).optional(),
 }).strict().refine((body) => body.title !== undefined || body.description !== undefined, "Provide a goal field to update.");
 
 export const updateMilestoneBodySchema = z.object({

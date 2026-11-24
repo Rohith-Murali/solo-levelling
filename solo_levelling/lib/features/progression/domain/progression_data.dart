@@ -117,6 +117,7 @@ class ProgressionGoal {
     required this.title,
     required this.description,
     required this.primarySkillId,
+    this.statContributions = const [],
     required this.milestoneIds,
     required this.completed,
     required this.status,
@@ -125,6 +126,7 @@ class ProgressionGoal {
   final String title;
   final String description;
   final String primarySkillId;
+  final List<String> statContributions;
   final List<String> milestoneIds;
   final bool completed;
   final String status;
@@ -155,6 +157,11 @@ class ProgressionGoal {
       title: title,
       description: description,
       primarySkillId: primarySkillId,
+      statContributions: json['statContributions'] is List
+          ? (json['statContributions'] as List).whereType<String>().toList(
+              growable: false,
+            )
+          : const [],
       milestoneIds: milestoneIds.whereType<String>().toList(growable: false),
       completed: completed,
       status: status,

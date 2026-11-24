@@ -73,23 +73,40 @@ class _GoalsScreenState extends State<GoalsScreen> {
   Future<void> _create() async {
     final input = await showDialog<_GoalInput>(
       context: context,
-      builder: (_) => const _GoalDialog(),
+      builder: (_) => _GoalDialog(skills: _dashboard?.skills ?? const []),
     );
     final repo = widget.repository;
     final token = widget.accessToken;
     if (input == null || repo == null || token == null) return;
-    await repo.createGoal(
-      token,
-      title: input.title,
-      description: input.description,
-    );
-    _load();
+    try {
+      await repo.createGoal(
+        token,
+        title: input.title,
+        description: input.description,
+        primarySkillId: input.skillId,
+        statContributions: input.statContributions,
+      );
+      await _load();
+      if (mounted) {
+        await SystemNotification.show(
+          context,
+          icon: Icons.flag,
+          message: 'GOAL UNLOCKED\n\n${input.title}',
+        );
+      }
+    } on ApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    }
   }
 
   Future<void> _edit(ProgressionGoal goal) async {
     final input = await showDialog<_GoalInput>(
       context: context,
-      builder: (_) => _GoalDialog(goal: goal),
+      builder: (_) =>
+          _GoalDialog(goal: goal, skills: _dashboard?.skills ?? const []),
     );
     final repo = widget.repository;
     final token = widget.accessToken;
@@ -99,6 +116,8 @@ class _GoalsScreenState extends State<GoalsScreen> {
       goalId: goal.id,
       title: input.title,
       description: input.description,
+      primarySkillId: input.skillId,
+      statContributions: input.statContributions,
     );
     _load();
   }
@@ -148,6 +167,8 @@ class _GoalsScreenState extends State<GoalsScreen> {
         onEditQuest: (quest) => _editQuest(goal, quest),
         onDeleteQuest: (quest) => _deleteQuest(goal, quest),
         onCompleteQuest: _completeQuest,
+        onCompleteMilestone: _completeMilestone,
+        onCompleteGoal: _completeGoal,
       ),
     );
   }
@@ -176,7 +197,8 @@ class _GoalsScreenState extends State<GoalsScreen> {
       title: input.first,
       description: input.second,
     );
-    _load();
+    await _load();
+    if (mounted) Navigator.of(context).pop();
   }
 
   Future<void> _addMilestone(ProgressionGoal goal) async {
@@ -197,7 +219,14 @@ class _GoalsScreenState extends State<GoalsScreen> {
       title: input.first,
       description: input.second,
     );
-    _load();
+    await _load();
+    if (mounted) {
+      await SystemNotification.show(
+        context,
+        icon: Icons.flag_outlined,
+        message: 'MILESTONE UNLOCKED\n\n${input.first}',
+      );
+    }
   }
 
   Future<void> _deleteMilestone(ProgressionMilestone milestone) async {
@@ -212,7 +241,8 @@ class _GoalsScreenState extends State<GoalsScreen> {
       (item) => item.milestoneIds.contains(milestone.id),
     );
     await repo.deleteMilestone(token, goal.id, milestone.id);
-    _load();
+    await _load();
+    if (mounted) Navigator.of(context).pop();
   }
 
   Future<void> _editQuest(ProgressionGoal goal, ProgressionQuest quest) async {
@@ -236,7 +266,8 @@ class _GoalsScreenState extends State<GoalsScreen> {
       milestoneId: input.milestoneId,
       statContributions: quest.statContributions,
     );
-    _load();
+    await _load();
+    if (mounted) Navigator.of(context).pop();
   }
 
   Future<void> _addQuest(ProgressionGoal goal) async {
@@ -259,7 +290,14 @@ class _GoalsScreenState extends State<GoalsScreen> {
         difficulty: input.difficulty,
         milestoneId: input.milestoneId,
       );
-      _load();
+      await _load();
+      if (mounted) {
+        await SystemNotification.show(
+          context,
+          icon: Icons.add_task,
+          message: 'QUEST UNLOCKED\n\n${input.title}',
+        );
+      }
     } on ApiException catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -277,7 +315,8 @@ class _GoalsScreenState extends State<GoalsScreen> {
     final token = widget.accessToken;
     if (!ok || repo == null || token == null) return;
     await repo.deleteGoalQuest(token, goal.id, quest.id);
-    _load();
+    await _load();
+    if (mounted) Navigator.of(context).pop();
   }
 
   Future<void> _completeQuest(ProgressionQuest quest) async {
@@ -343,7 +382,59 @@ class _GoalsScreenState extends State<GoalsScreen> {
         }
       }
       await SystemNotification.showStack(context, notifications);
-      if (mounted) widget.onDataChanged();
+      if (mounted) {
+        Navigator.of(context).pop();
+        widget.onDataChanged();
+      }
+    } on ApiException catch (error) {
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+
+  Future<void> _completeMilestone(
+    ProgressionGoal goal,
+    ProgressionMilestone milestone,
+  ) async {
+    final repo = widget.repository;
+    final token = widget.accessToken;
+    if (repo == null || token == null) return;
+    try {
+      await repo.completeMilestone(token, goal.id, milestone.id);
+      await _load();
+      if (mounted) {
+        await SystemNotification.show(
+          context,
+          icon: Icons.flag,
+          message: 'MILESTONE COMPLETED\n\n${milestone.title}',
+        );
+        Navigator.of(context).pop();
+        widget.onDataChanged();
+      }
+    } on ApiException catch (error) {
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+
+  Future<void> _completeGoal(ProgressionGoal goal) async {
+    final repo = widget.repository;
+    final token = widget.accessToken;
+    if (repo == null || token == null) return;
+    try {
+      await repo.completeGoal(token, goal.id);
+      await _load();
+      if (mounted) {
+        await SystemNotification.show(
+          context,
+          icon: Icons.emoji_events,
+          message: 'GOAL COMPLETED\n\n${goal.title}',
+        );
+        Navigator.of(context).pop();
+        widget.onDataChanged();
+      }
     } on ApiException catch (error) {
       if (mounted)
         ScaffoldMessenger.of(context)
@@ -448,15 +539,33 @@ class _GoalsScreenState extends State<GoalsScreen> {
   );
 }
 
+const _goalStats = [
+  'strength',
+  'intelligence',
+  'vitality',
+  'discipline',
+  'perception',
+];
+
+String _statLabel(String stat) => stat[0].toUpperCase() + stat.substring(1);
+
 class _GoalInput {
-  const _GoalInput(this.title, this.description);
+  const _GoalInput(
+    this.title,
+    this.description,
+    this.skillId,
+    this.statContributions,
+  );
   final String title;
   final String description;
+  final String skillId;
+  final List<String> statContributions;
 }
 
 class _GoalDialog extends StatefulWidget {
-  const _GoalDialog({this.goal});
+  const _GoalDialog({required this.skills, this.goal});
   final ProgressionGoal? goal;
+  final List<DashboardSkill> skills;
   @override
   State<_GoalDialog> createState() => _GoalDialogState();
 }
@@ -468,6 +577,12 @@ class _GoalDialogState extends State<_GoalDialog> {
   late final TextEditingController description = TextEditingController(
     text: widget.goal?.description,
   );
+  late String? skillId =
+      widget.goal?.primarySkillId ??
+      (widget.skills.isNotEmpty ? widget.skills.first.id : null);
+  late final Set<String> statContributions = {
+    ...(widget.goal?.statContributions ?? const <String>[]),
+  };
   @override
   void dispose() {
     title.dispose();
@@ -485,6 +600,42 @@ class _GoalDialogState extends State<_GoalDialog> {
           decoration: const InputDecoration(labelText: 'Goal title'),
         ),
         const SizedBox(height: 12),
+        DropdownButtonFormField<String>(
+          value: skillId,
+          decoration: const InputDecoration(labelText: 'Associated skill'),
+          items: [
+            for (final skill in widget.skills)
+              DropdownMenuItem(value: skill.id, child: Text(skill.name)),
+          ],
+          onChanged: widget.skills.isEmpty
+              ? null
+              : (value) => setState(() => skillId = value),
+        ),
+        const SizedBox(height: 12),
+        const Align(
+          alignment: Alignment.centerLeft,
+          child: Text('Stats increased by completing quests'),
+        ),
+        Wrap(
+          spacing: 6,
+          children: [
+            for (final stat in _goalStats)
+              FilterChip(
+                label: Text(_statLabel(stat)),
+                selected: statContributions.contains(stat),
+                onSelected: (selected) {
+                  setState(() {
+                    if (selected && statContributions.length < 2) {
+                      statContributions.add(stat);
+                    } else if (!selected) {
+                      statContributions.remove(stat);
+                    }
+                  });
+                },
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
         TextField(
           controller: description,
           maxLines: 3,
@@ -498,13 +649,20 @@ class _GoalDialogState extends State<_GoalDialog> {
         child: const Text('Cancel'),
       ),
       FilledButton(
-        onPressed: () {
-          if (title.text.trim().isNotEmpty)
-            Navigator.pop(
-              context,
-              _GoalInput(title.text.trim(), description.text.trim()),
-            );
-        },
+        onPressed: skillId == null
+            ? null
+            : () {
+                if (title.text.trim().isNotEmpty)
+                  Navigator.pop(
+                    context,
+                    _GoalInput(
+                      title.text.trim(),
+                      description.text.trim(),
+                      skillId!,
+                      statContributions.toList(growable: false),
+                    ),
+                  );
+              },
         child: Text(widget.goal == null ? 'Create' : 'Save'),
       ),
     ],
@@ -795,7 +953,9 @@ class _QuestDialogState extends State<_QuestDialog> {
   );
 }
 
-class _GoalDetailDialog extends StatelessWidget {
+enum _GoalFilter { active, completed, all }
+
+class _GoalDetailDialog extends StatefulWidget {
   const _GoalDetailDialog({
     required this.goal,
     required this.milestones,
@@ -807,6 +967,8 @@ class _GoalDetailDialog extends StatelessWidget {
     required this.onEditQuest,
     required this.onDeleteQuest,
     required this.onCompleteQuest,
+    required this.onCompleteMilestone,
+    required this.onCompleteGoal,
   });
   final ProgressionGoal goal;
   final List<ProgressionMilestone> milestones;
@@ -815,16 +977,33 @@ class _GoalDetailDialog extends StatelessWidget {
   final VoidCallback onAddMilestone, onAddQuest;
   final ValueChanged<ProgressionQuest> onEditQuest, onDeleteQuest;
   final Future<void> Function(ProgressionQuest) onCompleteQuest;
+  final Future<void> Function(ProgressionGoal, ProgressionMilestone)
+  onCompleteMilestone;
+  final Future<void> Function(ProgressionGoal) onCompleteGoal;
+
+  @override
+  State<_GoalDetailDialog> createState() => _GoalDetailDialogState();
+}
+
+class _GoalDetailDialogState extends State<_GoalDetailDialog> {
+  _GoalFilter _filter = _GoalFilter.active;
+
+  bool _matches(bool completed) => switch (_filter) {
+    _GoalFilter.active => !completed,
+    _GoalFilter.completed => completed,
+    _GoalFilter.all => true,
+  };
+
   @override
   Widget build(BuildContext context) => HolographicDialog(
-    title: goal.title,
+    title: widget.goal.title,
     compact: true,
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (goal.description.isNotEmpty)
+        if (widget.goal.description.isNotEmpty)
           Text(
-            goal.description,
+            widget.goal.description,
             style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 12,
@@ -837,7 +1016,7 @@ class _GoalDetailDialog extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: () {
                 Navigator.pop(context);
-                onAddMilestone();
+                widget.onAddMilestone();
               },
               icon: const Icon(Icons.flag_outlined, size: 16),
               label: const Text('Add milestone'),
@@ -845,11 +1024,46 @@ class _GoalDetailDialog extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: () {
                 Navigator.pop(context);
-                onAddQuest();
+                widget.onAddQuest();
               },
               icon: const Icon(Icons.add_task, size: 16),
               label: const Text('Add quest'),
             ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            const Text(
+              'SHOW',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
+            ),
+            const SizedBox(width: 8),
+            DropdownButton<_GoalFilter>(
+              value: _filter,
+              underline: const SizedBox.shrink(),
+              items: const [
+                DropdownMenuItem(
+                  value: _GoalFilter.active,
+                  child: Text('Active'),
+                ),
+                DropdownMenuItem(
+                  value: _GoalFilter.completed,
+                  child: Text('Completed'),
+                ),
+                DropdownMenuItem(value: _GoalFilter.all, child: Text('All')),
+              ],
+              onChanged: (value) =>
+                  setState(() => _filter = value ?? _GoalFilter.active),
+            ),
+            const Spacer(),
+            if (!widget.goal.completed &&
+                widget.milestones.isNotEmpty &&
+                widget.milestones.every((milestone) => milestone.completed))
+              FilledButton(
+                onPressed: () => widget.onCompleteGoal(widget.goal),
+                child: const Text('Complete goal'),
+              ),
           ],
         ),
         const SizedBox(height: 12),
@@ -863,24 +1077,46 @@ class _GoalDetailDialog extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 5),
-        if (milestones.isEmpty)
+        if (widget.milestones.isEmpty)
           const Text(
             'No milestones yet.',
             style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
           ),
-        for (final milestone in milestones)
+        for (final milestone in widget.milestones.where((milestone) {
+          final milestoneQuests = widget.quests.where(
+            (quest) => quest.milestoneId == milestone.id,
+          );
+          return _matches(milestone.completed) ||
+              milestoneQuests.any((quest) => _matches(quest.completed));
+        }))
           _MilestoneTile(
             milestone: milestone,
-            quests: quests
-                .where((quest) => quest.milestoneId == milestone.id)
+            quests: widget.quests
+                .where(
+                  (quest) =>
+                      quest.milestoneId == milestone.id &&
+                      _matches(quest.completed),
+                )
                 .toList(growable: false),
-            onEdit: () => onEditMilestone(milestone),
-            onDelete: () => onDeleteMilestone(milestone),
-            onEditQuest: onEditQuest,
-            onDeleteQuest: onDeleteQuest,
-            onCompleteQuest: onCompleteQuest,
+            canComplete:
+                !milestone.completed &&
+                widget.quests.any(
+                  (quest) => quest.milestoneId == milestone.id,
+                ) &&
+                widget.quests
+                    .where((quest) => quest.milestoneId == milestone.id)
+                    .every((quest) => quest.completed),
+            onEdit: () => widget.onEditMilestone(milestone),
+            onDelete: () => widget.onDeleteMilestone(milestone),
+            onEditQuest: widget.onEditQuest,
+            onDeleteQuest: widget.onDeleteQuest,
+            onCompleteQuest: widget.onCompleteQuest,
+            onCompleteMilestone: () =>
+                widget.onCompleteMilestone(widget.goal, milestone),
           ),
-        if (quests.any((quest) => quest.milestoneId == null)) ...[
+        if (widget.quests.any(
+          (quest) => quest.milestoneId == null && _matches(quest.completed),
+        )) ...[
           const SizedBox(height: 12),
           const Text(
             'UNLINKED QUESTS',
@@ -890,14 +1126,14 @@ class _GoalDetailDialog extends StatelessWidget {
               letterSpacing: 1,
             ),
           ),
-          for (final quest in quests.where(
-            (quest) => quest.milestoneId == null,
+          for (final quest in widget.quests.where(
+            (quest) => quest.milestoneId == null && _matches(quest.completed),
           ))
             _QuestTile(
               quest: quest,
-              onEdit: () => onEditQuest(quest),
-              onDelete: () => onDeleteQuest(quest),
-              onComplete: () => onCompleteQuest(quest),
+              onEdit: () => widget.onEditQuest(quest),
+              onDelete: () => widget.onDeleteQuest(quest),
+              onComplete: () => widget.onCompleteQuest(quest),
             ),
         ],
       ],
@@ -920,12 +1156,16 @@ class _MilestoneTile extends StatelessWidget {
     required this.onEditQuest,
     required this.onDeleteQuest,
     required this.onCompleteQuest,
+    required this.onCompleteMilestone,
+    required this.canComplete,
   });
   final ProgressionMilestone milestone;
   final List<ProgressionQuest> quests;
   final VoidCallback onEdit, onDelete;
   final ValueChanged<ProgressionQuest> onEditQuest, onDeleteQuest;
   final Future<void> Function(ProgressionQuest) onCompleteQuest;
+  final Future<void> Function() onCompleteMilestone;
+  final bool canComplete;
   @override
   Widget build(BuildContext context) => Container(
     margin: const EdgeInsets.only(bottom: 6),
@@ -977,6 +1217,27 @@ class _MilestoneTile extends StatelessWidget {
             style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 13,
+            ),
+          ),
+        if (canComplete)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: const VisualDensity(
+                  horizontal: -4,
+                  vertical: -4,
+                ),
+              ),
+              onPressed: onCompleteMilestone,
+              icon: const Icon(Icons.check, size: 13),
+              label: const Text(
+                'Complete milestone',
+                style: TextStyle(fontSize: 10),
+              ),
             ),
           ),
         for (final quest in quests)
