@@ -345,6 +345,71 @@ test("custom side quest normalizes legacy starting skill and completes with stat
   }
 });
 
+test("adding a quest to a completed goal reopens the goal and normalizes legacy fields", async () => {
+  const originalFindById = User.findById;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const now = new Date();
+  let character = createCharacterRecord({
+    quests: [{
+      id: "legacy-quest",
+      title: "Legacy quest",
+      description: "",
+      type: "MAIN",
+      difficulty: "EASY",
+      primarySkillId: "focus",
+      completed: true,
+    }],
+    goals: [{
+      id: "completed-goal",
+      title: "Completed goal",
+      description: "Add another quest.",
+      milestoneIds: [],
+      completed: true,
+      status: "COMPLETED",
+      createdAt: now,
+      completedAt: now,
+    }],
+  });
+
+  try {
+    User.findById = () => ({
+      select: async () => ({ character }),
+    });
+    User.findOneAndUpdate = async (_filter, update) => {
+      const nextCharacter = {
+        ...character,
+        goals: update.$set["character.goals"],
+        quests: update.$set["character.quests"],
+        milestones: update.$set["character.milestones"],
+        version: update.$set["character.version"],
+        updatedAt: update.$set["character.updatedAt"],
+      };
+      await new User({
+        email: "hunter@example.com",
+        passwordHash: "test",
+        character: nextCharacter,
+      }).validate();
+      character = nextCharacter;
+      return { character };
+    };
+
+    const quest = await createQuestService().createGoalQuest(
+      "user-1",
+      "completed-goal",
+      { title: "A fresh start", difficulty: "NORMAL" },
+    );
+
+    assert.equal(quest.title, "A fresh start");
+    assert.equal(character.goals[0].status, "ACTIVE");
+    assert.equal(character.goals[0].completed, false);
+    assert.deepEqual(character.quests[0].statContributions, []);
+    assert.equal(character.quests.length, 2);
+  } finally {
+    User.findById = originalFindById;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+});
+
 test("quest completion backfills legacy goal and milestone fields", async () => {
   const originalFindById = User.findById;
   const originalFindOneAndUpdate = User.findOneAndUpdate;
