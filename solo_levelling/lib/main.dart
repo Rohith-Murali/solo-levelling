@@ -26,6 +26,7 @@ void main() {
     api: AuthApi(apiClient),
     tokenStorage: SecureRefreshTokenStorage(storage: secureStorage),
   );
+  apiClient.onAccessTokenExpired = authRepository.refreshAccessToken;
   final characterRepository = CharacterRepositoryImpl(
     api: CharacterApi(apiClient),
   );

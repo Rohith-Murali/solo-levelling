@@ -51,4 +51,47 @@ void main() {
     );
     mockClient.close();
   });
+
+  test(
+    'refreshes an expired access token and retries the request once',
+    () async {
+      var requestCount = 0;
+      final mockClient = MockClient((request) async {
+        requestCount++;
+        expect(
+          request.headers['authorization'],
+          'Bearer ${requestCount == 1 ? 'expired-token' : 'fresh-token'}',
+        );
+        return requestCount == 1
+            ? http.Response(
+                jsonEncode({
+                  'error': {
+                    'code': 'INVALID_ACCESS_TOKEN',
+                    'message': 'Your session is invalid or expired.',
+                  },
+                }),
+                401,
+              )
+            : http.Response(
+                jsonEncode({
+                  'data': {'status': 'ok'},
+                }),
+                200,
+              );
+      });
+      final apiClient = ApiClient(
+        baseUri: Uri.parse('http://localhost:3000/api/'),
+        client: mockClient,
+      )..onAccessTokenExpired = () async => 'fresh-token';
+
+      expect(
+        await apiClient.getJson('health/live', bearerToken: 'expired-token'),
+        {
+          'data': {'status': 'ok'},
+        },
+      );
+      expect(requestCount, 2);
+      mockClient.close();
+    },
+  );
 }

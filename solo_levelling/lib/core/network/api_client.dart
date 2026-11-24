@@ -11,6 +11,8 @@ class ApiClient {
       _client = client ?? http.Client(),
       _ownsClient = client == null;
 
+  Future<String?> Function()? onAccessTokenExpired;
+
   final Uri _baseUri;
   final http.Client _client;
   final bool _ownsClient;
@@ -70,33 +72,47 @@ class ApiClient {
     if (bearerToken != null) {
       headers['Authorization'] = 'Bearer $bearerToken';
     }
-    late final http.Response response;
+    final response = await _send(method, normalizedPath, headers, body);
 
-    try {
-      final uri = _baseUri.resolve(normalizedPath);
-      if (method == 'GET') {
-        response = await _client
-            .get(uri, headers: headers)
-            .timeout(const Duration(seconds: 10));
-      } else if (method == 'DELETE') {
-        response = await _client
-            .delete(uri, headers: headers)
-            .timeout(const Duration(seconds: 10));
-      } else if (method == 'PATCH') {
-        response = await _client
-            .patch(uri, headers: headers, body: jsonEncode(body))
-            .timeout(const Duration(seconds: 10));
-      } else {
-        response = await _client
-            .post(uri, headers: headers, body: jsonEncode(body))
-            .timeout(const Duration(seconds: 10));
+    if (response.statusCode == 401 &&
+        bearerToken != null &&
+        onAccessTokenExpired != null) {
+      final refreshedToken = await onAccessTokenExpired!();
+      if (refreshedToken != null && refreshedToken.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $refreshedToken';
+        final retryResponse = await _send(
+          method,
+          normalizedPath,
+          headers,
+          body,
+        );
+        return _decodeResponse(retryResponse);
       }
+    }
+
+    return _decodeResponse(response);
+  }
+
+  Future<http.Response> _send(
+    String method,
+    String path,
+    Map<String, String> headers,
+    Map<String, Object?>? body,
+  ) async {
+    try {
+      final uri = _baseUri.resolve(path);
+      return await (method == 'GET'
+              ? _client.get(uri, headers: headers)
+              : _client.post(uri, headers: headers, body: jsonEncode(body)))
+          .timeout(const Duration(seconds: 10));
     } on TimeoutException {
       throw const ApiException('The request timed out.');
     } on http.ClientException {
       throw const ApiException('Unable to reach the server.');
     }
+  }
 
+  Map<String, dynamic> _decodeResponse(http.Response response) {
     final Object? decoded;
     try {
       decoded = jsonDecode(response.body);
