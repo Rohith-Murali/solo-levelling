@@ -11,6 +11,19 @@ export type ProgressionEventType =
   | "GOAL_COMPLETED"
   | "MILESTONE_COMPLETED";
 
+export type ProgressionSourceType = "QUEST" | "MILESTONE" | "GOAL";
+export type ProgressionRewardType = "CHARACTER_XP" | "SKILL_XP";
+export type QuestDifficulty = "EASY" | "NORMAL" | "HARD" | "EPIC";
+
+export interface XpTransaction {
+  readonly sourceType: ProgressionSourceType;
+  readonly sourceId: string;
+  readonly rewardType: ProgressionRewardType;
+  readonly skillId: string | null;
+  readonly amount: number;
+  readonly characterLevelAtAward: number;
+}
+
 export interface RankDefinition {
   readonly name: string;
   readonly minimumLevel: number;
@@ -60,6 +73,7 @@ export interface ProgressionState {
 
 export interface QuestCompletion {
   readonly questId: string;
+  readonly difficulty?: string;
   readonly primarySkillId?: string;
   readonly completedGoal?: boolean;
   readonly completedMilestone?: boolean;
@@ -74,7 +88,7 @@ export interface ProgressionEvent {
   readonly previousValue?: unknown;
   readonly newValue?: unknown;
   readonly occurredAt: Date;
-  readonly metadata?: Readonly<Record<string, unknown>>;
+  readonly metadata?: Readonly<Record<string, unknown>> & { readonly xpTransaction?: XpTransaction };
 }
 
 export interface ProgressionResult {

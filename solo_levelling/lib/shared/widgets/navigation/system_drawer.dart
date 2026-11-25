@@ -110,10 +110,17 @@ class SystemDrawer extends StatelessWidget {
                 ),
               ),
             ),
-            for (final label in ['Settings', 'App Preferences', 'About'])
+            for (final label in [
+              'Character Titles',
+              'Settings',
+              'App Preferences',
+              'About',
+            ])
               ListTile(
                 leading: Icon(
-                  label == 'About'
+                  label == 'Character Titles'
+                      ? Icons.workspace_premium_outlined
+                      : label == 'About'
                       ? Icons.info_outline
                       : Icons.settings_outlined,
                 ),

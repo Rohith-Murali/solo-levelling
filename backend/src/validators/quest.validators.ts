@@ -7,6 +7,7 @@ const questInputSchema = z.object({
   title: z.string().trim().min(1).max(120),
   description: z.string().trim().max(1000).optional(),
   difficulty: difficultySchema.optional(),
+  requiredForCompletion: z.boolean().optional(),
   statContributions: z.array(statSchema).min(1).max(2).optional(),
 }).strict();
 
@@ -49,12 +50,14 @@ export const updateGoalQuestBodySchema = z.object({
   title: z.string().trim().min(1).max(120).optional(),
   description: z.string().trim().max(1000).optional(),
   difficulty: difficultySchema.optional(),
+  requiredForCompletion: z.boolean().optional(),
   milestoneId: z.string().trim().max(64).nullable().optional(),
   statContributions: z.array(statSchema).min(1).max(2).optional(),
 }).strict().refine((body) =>
   body.title !== undefined ||
   body.description !== undefined ||
   body.difficulty !== undefined ||
+  body.requiredForCompletion !== undefined ||
   body.milestoneId !== undefined ||
   body.statContributions !== undefined,
 "Provide a quest field to update.");
@@ -63,6 +66,7 @@ export const createSideQuestBodySchema = z.object({
   title: z.string().trim().min(1).max(120),
   description: z.string().trim().max(1000).optional(),
   difficulty: difficultySchema.optional(),
+  requiredForCompletion: z.boolean().optional(),
   primarySkillId: z.string().trim().min(1).max(64).optional(),
   skillName: z.string().trim().min(1).max(80).optional(),
   statContributions: z.array(statSchema).min(1).max(2).optional(),

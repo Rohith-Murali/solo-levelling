@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { defaultProgressionConfig, validateProgressionConfig, type ProgressionConfig } from "./config.js";
-import type { ProgressionEvent, ProgressionResult, ProgressionState, QuestCompletion, SkillState } from "./models.js";
-import { resolveRank, resolveTitle, titlesUnlockedBetweenLevels, unlockTokensAtLevel, xpForLevel } from "./resolvers.js";
+import type { ProgressionEvent, ProgressionResult, ProgressionSourceType, ProgressionState, QuestCompletion, SkillState } from "./models.js";
+import { characterXpReward, normalizeQuestDifficulty, resolveRank, resolveTitle, titlesUnlockedBetweenLevels, unlockTokensAtLevel, xpForLevel } from "./resolvers.js";
 
 export class ProgressionEngine {
   private readonly config: ProgressionConfig;
@@ -20,13 +20,34 @@ export class ProgressionEngine {
   }
 
   processQuestCompletion(state: ProgressionState, quest: QuestCompletion, now = new Date()): ProgressionResult {
-    return this.processCompletion(state, quest, xpForLevel(state.level, this.config), now);
+    const difficulty = normalizeQuestDifficulty(quest.difficulty);
+    const characterXpGained = characterXpReward(this.config.questBaseCharacterXp[difficulty], state.level, this.config);
+    return this.processCompletion(state, { ...quest, difficulty }, characterXpGained, now, "QUEST");
   }
 
   /** Applies an already-authorized XP award, useful for imports and other progression sources. */
   awardXp(state: ProgressionState, xp: number, relatedEntityId: string, primarySkillId?: string, now = new Date()): ProgressionResult {
     if (!Number.isInteger(xp) || xp < 0) throw new Error("XP award must be a non-negative integer.");
-    return this.processCompletion(state, { questId: relatedEntityId, ...(primarySkillId ? { primarySkillId } : {}) }, xp, now);
+    return this.processCompletion(state, { questId: relatedEntityId, ...(primarySkillId ? { primarySkillId } : {}) }, xp, now, "QUEST");
+  }
+
+  awardCompletionBonus(
+    state: ProgressionState,
+    relatedEntityId: string,
+    eventType: "MILESTONE_COMPLETED" | "GOAL_COMPLETED",
+    now = new Date(),
+  ): ProgressionResult {
+    const sourceType = eventType === "MILESTONE_COMPLETED" ? "MILESTONE" : "GOAL";
+    const baseXp = sourceType === "MILESTONE"
+      ? this.config.milestoneBaseCharacterXp
+      : this.config.goalBaseCharacterXp;
+    return this.awardCharacterXp(
+      state,
+      characterXpReward(baseXp, state.level, this.config),
+      relatedEntityId,
+      eventType,
+      now,
+    );
   }
 
   awardCharacterXp(
@@ -56,7 +77,14 @@ export class ProgressionEngine {
       occurredAt: now,
       ...values,
     });
-    event("CHARACTER_XP_GAINED", { relatedEntityId, xpChange: xp, previousValue: state.totalXp, newValue: character.totalXp });
+    const sourceType: ProgressionSourceType = eventType === "MILESTONE_COMPLETED" ? "MILESTONE" : "GOAL";
+    event("CHARACTER_XP_GAINED", {
+      relatedEntityId,
+      xpChange: xp,
+      previousValue: state.totalXp,
+      newValue: character.totalXp,
+      metadata: { xpTransaction: { sourceType, sourceId: relatedEntityId, rewardType: "CHARACTER_XP", skillId: null, amount: xp, characterLevelAtAward: state.level } },
+    });
     levelUps.forEach((level) => event("CHARACTER_LEVEL_INCREASED", { relatedEntityId, previousValue: level - 1, newValue: level }));
     if (currentRank !== previousRank) event("RANK_PROMOTED", { relatedEntityId, previousValue: previousRank, newValue: currentRank });
     const newlyUnlockedTitles = this.titlesUnlocked(state.level, character.level, previousTitle, currentTitle);
@@ -77,7 +105,7 @@ export class ProgressionEngine {
     return this.result(nextState, { questId: relatedEntityId }, xp, 0, levelUps, [previousRank, currentRank], [previousTitle, currentTitle], newlyUnlockedTitles, 0, events, false, now);
   }
 
-  private processCompletion(state: ProgressionState, quest: QuestCompletion, characterXpGained: number, now: Date): ProgressionResult {
+  private processCompletion(state: ProgressionState, quest: QuestCompletion, characterXpGained: number, now: Date, sourceType: ProgressionSourceType): ProgressionResult {
     if (state.completedQuestIds.has(quest.questId)) return this.result(state, quest, 0, 0, [], [], [], [], 0, [], true, now);
     const skill = quest.primarySkillId ? state.skills[quest.primarySkillId] : undefined;
     const skillXpGained = skill ? this.round(characterXpGained * this.config.skillXpMultiplier) : 0;
@@ -97,7 +125,13 @@ export class ProgressionEngine {
     const events: ProgressionEvent[] = [];
     const event = (type: ProgressionEvent["type"], values: Partial<ProgressionEvent> = {}) => events.push({ id: randomUUID(), characterId: state.characterId, type, occurredAt: now, ...values });
     event("QUEST_COMPLETED", { relatedEntityId: quest.questId });
-    event("CHARACTER_XP_GAINED", { relatedEntityId: quest.questId, xpChange: characterXpGained, previousValue: state.totalXp, newValue: character.totalXp });
+    event("CHARACTER_XP_GAINED", {
+      relatedEntityId: quest.questId,
+      xpChange: characterXpGained,
+      previousValue: state.totalXp,
+      newValue: character.totalXp,
+      metadata: { xpTransaction: { sourceType, sourceId: quest.questId, rewardType: "CHARACTER_XP", skillId: null, amount: characterXpGained, characterLevelAtAward: state.level } },
+    });
     levelUps.forEach((level) => event("CHARACTER_LEVEL_INCREASED", { relatedEntityId: quest.questId, previousValue: level - 1, newValue: level }));
     if (currentRank !== previousRank) event("RANK_PROMOTED", { previousValue: previousRank, newValue: currentRank });
     const newlyUnlockedTitles = this.titlesUnlocked(state.level, character.level, previousTitle, currentTitle);
@@ -107,7 +141,13 @@ export class ProgressionEngine {
       priorTitle = title;
     });
     if (newSkill) {
-      event("SKILL_XP_GAINED", { relatedEntityId: newSkill.id, xpChange: skillXpGained, previousValue: skill?.totalXp, newValue: newSkill.totalXp });
+      event("SKILL_XP_GAINED", {
+        relatedEntityId: newSkill.id,
+        xpChange: skillXpGained,
+        previousValue: skill?.totalXp,
+        newValue: newSkill.totalXp,
+        metadata: { xpTransaction: { sourceType, sourceId: quest.questId, rewardType: "SKILL_XP", skillId: newSkill.id, amount: skillXpGained, characterLevelAtAward: state.level } },
+      });
       for (let level = (skill?.level ?? newSkill.level) + 1; level <= newSkill.level; level++) event("SKILL_LEVEL_INCREASED", { relatedEntityId: newSkill.id, previousValue: level - 1, newValue: level });
     }
     if (newlyEarnedUnlockTokens > 0) event("SKILL_UNLOCK_TOKEN_EARNED", { xpChange: newlyEarnedUnlockTokens, previousValue: previousTokens, newValue: currentTokens });

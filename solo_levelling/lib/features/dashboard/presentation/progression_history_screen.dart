@@ -138,6 +138,23 @@ class _ProgressionHistoryScreenState extends State<ProgressionHistoryScreen> {
           ],
           const SizedBox(height: 20),
           Text(
+            'XP TRANSACTIONS',
+            style: Theme.of(context).textTheme.titleMedium
+                ?.copyWith(color: AppColors.accent, letterSpacing: 1),
+          ),
+          const SizedBox(height: 10),
+          if (data != null && data.xpTransactions.isEmpty)
+            const _HistoryEmpty('XP awards will appear here as you progress.')
+          else
+            for (final transaction
+                in data?.xpTransactions ??
+                    const <DashboardXpTransaction>[]) ...[
+              _XpTransactionEntry(transaction: transaction),
+              if (transaction != data!.xpTransactions.last)
+                const SizedBox(height: 8),
+            ],
+          const SizedBox(height: 20),
+          Text(
             'RECENT ACTIVITY',
             style: Theme.of(context).textTheme.titleMedium
                 ?.copyWith(color: AppColors.accent, letterSpacing: 1),
@@ -271,6 +288,55 @@ class _XpTrendEntry extends StatelessWidget {
       ],
     ),
   );
+}
+
+class _XpTransactionEntry extends StatelessWidget {
+  const _XpTransactionEntry({required this.transaction});
+  final DashboardXpTransaction transaction;
+
+  @override
+  Widget build(BuildContext context) {
+    final isSkillXp = transaction.rewardType == 'SKILL_XP';
+    final label = isSkillXp ? 'SKILL XP' : 'CHARACTER XP';
+    final source = transaction.sourceType.toLowerCase();
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.bolt, color: AppColors.accent),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$source · $label',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'Awarded at character level ${transaction.characterLevelAtAward}',
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            '+${transaction.amount}',
+            style: const TextStyle(color: AppColors.accent),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _ActivityEntry extends StatelessWidget {

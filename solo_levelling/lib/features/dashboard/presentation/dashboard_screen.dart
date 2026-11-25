@@ -341,19 +341,47 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (characterLevelledUp ||
             (before != null &&
                 after.character.level > before.character.level)) {
+          final levelsGained = before == null
+              ? 1
+              : after.character.level - before.character.level;
           notifications.add(
             SystemNotificationData(
               icon: Icons.trending_up,
-              message: 'LEVELLED UP\n\nLV ${after.character.level}',
+              message: before != null && levelsGained > 1
+                  ? 'LEVELLED UP\n\nLV ${before.character.level} -> ${after.character.level} (+$levelsGained)'
+                  : 'LEVELLED UP\n\nLV ${after.character.level}',
             ),
           );
         }
         if (before != null) {
+          final tokensEarned =
+              after.character.skillUnlockTokens -
+              before.character.skillUnlockTokens;
+          if (tokensEarned > 0) {
+            notifications.add(
+              SystemNotificationData(
+                icon: Icons.token_outlined,
+                message:
+                    '$tokensEarned SKILL UNLOCK TOKEN${tokensEarned == 1 ? '' : 'S'} EARNED',
+              ),
+            );
+          }
           final oldSkills = {
             for (final skill in before.skills) skill.id: skill,
           };
           for (final skill in after.skills) {
             final oldSkill = oldSkills[skill.id];
+            final skillXpGained = (skill.totalXp - (oldSkill?.totalXp ?? 0))
+                .clamp(0, 1 << 30);
+            if (skillXpGained > 0) {
+              notifications.add(
+                SystemNotificationData(
+                  icon: Icons.auto_awesome,
+                  message:
+                      '${skill.name.toUpperCase()}\n+$skillXpGained SKILL XP',
+                ),
+              );
+            }
             final skillLevelledUp = after.recentActivity.any(
               (activity) =>
                   !previousActivityIds.contains(activity.id) &&
@@ -365,8 +393,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               notifications.add(
                 SystemNotificationData(
                   icon: Icons.auto_awesome,
-                  message:
-                      'SKILL ${skill.name.toUpperCase()} LEVELLED UP\n\nLV ${skill.level}',
+                  message: oldSkill != null && skill.level - oldSkill.level > 1
+                      ? 'SKILL ${skill.name.toUpperCase()} LEVELLED UP\n\nLV ${oldSkill.level} -> ${skill.level}'
+                      : 'SKILL ${skill.name.toUpperCase()} LEVELLED UP\n\nLV ${skill.level}',
                 ),
               );
             }

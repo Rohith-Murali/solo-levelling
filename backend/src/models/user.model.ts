@@ -37,6 +37,7 @@ export interface QuestRecord {
   primarySkillId?: string;
   goalId?: string;
   milestoneId?: string;
+  requiredForCompletion?: boolean;
   statContributions: (keyof CharacterStats)[];
   completed: boolean;
   completedAt?: Date;
@@ -137,6 +138,7 @@ const questSchema = new Schema<QuestRecord>({
   primarySkillId: { type: String, required: false },
   goalId: { type: String, required: false },
   milestoneId: { type: String, required: false },
+  requiredForCompletion: { type: Boolean, required: false },
   statContributions: { type: [String], enum: ["strength", "intelligence", "vitality", "discipline", "perception"], required: true, default: [] },
   completed: { type: Boolean, required: true },
   completedAt: { type: Date, required: false },

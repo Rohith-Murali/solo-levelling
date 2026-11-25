@@ -1,4 +1,5 @@
 import { defaultProgressionConfig, type ProgressionConfig } from "./config.js";
+import type { QuestDifficulty } from "./models.js";
 
 export function resolveRank(level: number, config: ProgressionConfig): string {
   const rank = [...config.ranks].reverse().find((candidate) => candidate.minimumLevel <= level);
@@ -16,6 +17,19 @@ export function titlesUnlockedBetweenLevels(previousLevel: number, currentLevel:
   return config.titles
     .filter((title) => title.minimumLevel > previousLevel && title.minimumLevel <= currentLevel)
     .map((title) => title.name);
+}
+
+export function normalizeQuestDifficulty(difficulty = "NORMAL"): QuestDifficulty {
+  const normalized = difficulty.trim().toUpperCase();
+  if (normalized === "MEDIUM") return "NORMAL";
+  if (normalized === "EASY" || normalized === "NORMAL" || normalized === "HARD" || normalized === "EPIC") {
+    return normalized;
+  }
+  throw new Error(`Unsupported quest difficulty: ${difficulty}.`);
+}
+
+export function characterXpReward(baseXp: number, level: number, config: ProgressionConfig = defaultProgressionConfig): number {
+  return Math.round(baseXp * config.characterXpMultiplier(level));
 }
 
 export function unlockTokensAtLevel(level: number, config: ProgressionConfig): number {

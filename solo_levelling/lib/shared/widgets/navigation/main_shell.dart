@@ -5,6 +5,7 @@ import '../../../features/dashboard/domain/dashboard_repository.dart';
 import '../../../features/dashboard/presentation/character_status_screen.dart';
 import '../../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../../features/dashboard/presentation/activity_log_screen.dart';
+import '../../../features/dashboard/presentation/character_titles_screen.dart';
 import '../../../features/progression/presentation/goals_screen.dart';
 import '../../../features/progression/presentation/skill_library_screen.dart';
 import '../../../features/progression/domain/progression_repository.dart';
@@ -128,9 +129,22 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
-  void _showSecondary(String label) => Navigator.of(context).push(
-    MaterialPageRoute<void>(builder: (_) => _SystemInfoPage(title: label)),
-  );
+  void _showSecondary(String label) {
+    if (label == 'Character Titles') {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => CharacterTitlesScreen(
+            repository: widget.repository,
+            accessToken: widget.accessTokenProvider(),
+          ),
+        ),
+      );
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => _SystemInfoPage(title: label)),
+    );
+  }
 }
 
 class _SystemInfoPage extends StatelessWidget {

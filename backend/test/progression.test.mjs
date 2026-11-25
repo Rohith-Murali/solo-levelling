@@ -50,16 +50,18 @@ function createCharacterRecord(overrides = {}) {
 test("progresses character XP with carryover and independent skill XP", () => {
   const engine = new ProgressionEngine();
   const initial = engine.createInitialState("character-1", skill);
-  const result = engine.processQuestCompletion(initial, { questId: "quest-1", primarySkillId: "focus" });
+  const result = engine.processQuestCompletion(initial, { questId: "quest-1", difficulty: "EPIC", primarySkillId: "focus" });
 
-  assert.equal(result.characterXpGained, 100);
+  assert.equal(result.characterXpGained, 160);
   assert.equal(result.state.level, 2);
-  assert.equal(result.state.xp, 0);
-  assert.equal(result.state.totalXp, 100);
-  assert.equal(result.state.skills.focus.xp, 50);
-  assert.equal(result.state.skills.focus.totalXp, 50);
+  assert.equal(result.state.xp, 60);
+  assert.equal(result.state.totalXp, 160);
+  assert.equal(result.state.skills.focus.xp, 80);
+  assert.equal(result.state.skills.focus.totalXp, 80);
   assert.equal(result.state.rank, "E");
   assert.equal(result.state.title, "Shadow Initiate");
+  assert.equal(result.events.find((event) => event.type === "CHARACTER_XP_GAINED").metadata.xpTransaction.characterLevelAtAward, 1);
+  assert.equal(result.events.find((event) => event.type === "SKILL_XP_GAINED").metadata.xpTransaction.amount, 80);
   assert.ok(result.events.some((event) => event.type === "SKILL_XP_GAINED"));
 });
 
@@ -137,10 +139,73 @@ test("completes quests and awards no skill XP for an unacquired skill", () => {
   const engine = new ProgressionEngine();
   const initial = engine.createInitialState("character-1", skill);
   const completed = engine.processQuestCompletion(initial, { questId: "quest-1" });
-  assert.equal(completed.characterXpGained, 100);
+  assert.equal(completed.characterXpGained, 40);
   const result = engine.processQuestCompletion(initial, { questId: "quest-2", primarySkillId: "missing" });
-  assert.equal(result.characterXpGained, 100);
+  assert.equal(result.characterXpGained, 40);
   assert.equal(result.skillXpGained, 0);
+});
+
+test("scales all four quest difficulties using the pre-award character level", () => {
+  const engine = new ProgressionEngine();
+  const expected = new Map([
+    [1, [15, 40, 80, 160]],
+    [10, [35, 94, 188, 375]],
+    [20, [49, 130, 259, 518]],
+    [50, [76, 202, 404, 808]],
+    [100, [107, 284, 569, 1137]],
+  ]);
+  const difficulties = ["EASY", "NORMAL", "HARD", "EPIC"];
+
+  for (const [level, rewards] of expected) {
+    let state = engine.createInitialState(`character-${level}`, skill);
+    for (let currentLevel = 1; currentLevel < level; currentLevel++) {
+      state = engine.awardXp(
+        state,
+        defaultProgressionConfig.characterXpRequired(currentLevel),
+        `reach-${level}-${currentLevel}`,
+      ).state;
+    }
+
+    difficulties.forEach((difficulty, index) => {
+      const result = engine.processQuestCompletion(state, {
+        questId: `level-${level}-${difficulty}`,
+        difficulty,
+        primarySkillId: "focus",
+      });
+      assert.equal(result.characterXpGained, rewards[index]);
+      assert.equal(result.events.find((event) => event.type === "CHARACTER_XP_GAINED").metadata.xpTransaction.characterLevelAtAward, level);
+      assert.equal(result.skillXpGained, Math.round(rewards[index] * 0.5));
+    });
+  }
+});
+
+test("scales milestone and goal bonuses and records their ledger sources", () => {
+  const engine = new ProgressionEngine();
+  let state = engine.createInitialState("character-10", skill);
+  for (let level = 1; level < 10; level++) {
+    state = engine.awardXp(
+      state,
+      defaultProgressionConfig.characterXpRequired(level),
+      `reach-level-${level + 1}`,
+    ).state;
+  }
+
+  const milestone = engine.awardCompletionBonus(
+    state,
+    "milestone-1",
+    "MILESTONE_COMPLETED",
+  );
+  const goal = engine.awardCompletionBonus(
+    milestone.state,
+    "goal-1",
+    "GOAL_COMPLETED",
+  );
+
+  assert.equal(milestone.characterXpGained, 188);
+  assert.equal(goal.characterXpGained, 469);
+  assert.equal(milestone.events[0].metadata.xpTransaction.sourceType, "MILESTONE");
+  assert.equal(goal.events[0].metadata.xpTransaction.sourceType, "GOAL");
+  assert.equal(goal.events[0].metadata.xpTransaction.characterLevelAtAward, 10);
 });
 
 test("legacy version zero updates also match records without a stored version", () => {
@@ -321,13 +386,31 @@ test("quest completion backfills legacy goal and milestone fields", async () => 
       return { character };
     };
 
-    await createQuestService().complete("user-1", quest.id);
+    const service = createQuestService();
+    await service.complete("user-1", quest.id);
 
     assert.equal(character.milestones[0].description, "Foundation");
     assert.equal(character.goals[0].primarySkillId, "focus");
     assert.equal(character.goals[0].status, "COMPLETED");
     assert.equal(character.goals[0].completed, true);
     assert.ok(character.goals[0].createdAt instanceof Date);
+    assert.equal(character.totalXp, 295);
+    assert.equal(character.progressionEvents.filter((event) => event.metadata?.xpTransaction).length, 4);
+    assert.deepEqual(
+      character.progressionEvents
+        .filter((event) => event.metadata?.xpTransaction)
+        .map((event) => event.metadata.xpTransaction.sourceType),
+      ["QUEST", "QUEST", "MILESTONE", "GOAL"],
+    );
+    const transactionCount = character.progressionEvents.filter(
+      (event) => event.metadata?.xpTransaction,
+    ).length;
+    const duplicate = await service.complete("user-1", quest.id);
+    assert.equal(duplicate.alreadyCompleted, true);
+    assert.equal(
+      character.progressionEvents.filter((event) => event.metadata?.xpTransaction).length,
+      transactionCount,
+    );
   } finally {
     User.findById = originalFindById;
     User.findOneAndUpdate = originalFindOneAndUpdate;

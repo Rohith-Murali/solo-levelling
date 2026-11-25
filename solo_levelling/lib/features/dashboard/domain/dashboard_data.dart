@@ -198,6 +198,7 @@ class DashboardSkill {
     required this.level,
     required this.currentLevelXp,
     required this.xpToNextLevel,
+    this.totalXp = 0,
   });
 
   final String id;
@@ -205,6 +206,7 @@ class DashboardSkill {
   final int level;
   final int currentLevelXp;
   final int xpToNextLevel;
+  final int totalXp;
 
   factory DashboardSkill.fromJson(Map<String, dynamic> json) {
     final id = json['id'];
@@ -212,11 +214,13 @@ class DashboardSkill {
     final level = json['level'];
     final currentLevelXp = json['currentLevelXp'];
     final xpToNextLevel = json['xpToNextLevel'];
+    final totalXp = json['totalXp'] ?? currentLevelXp;
     if (id is! String ||
         name is! String ||
         level is! int ||
         currentLevelXp is! int ||
-        xpToNextLevel is! int) {
+        xpToNextLevel is! int ||
+        totalXp is! int) {
       throw const ApiException('The server returned invalid dashboard data.');
     }
 
@@ -226,6 +230,90 @@ class DashboardSkill {
       level: level,
       currentLevelXp: currentLevelXp,
       xpToNextLevel: xpToNextLevel,
+      totalXp: totalXp,
+    );
+  }
+}
+
+class DashboardTitleTier {
+  const DashboardTitleTier({
+    required this.name,
+    required this.minimumLevel,
+    required this.maximumLevel,
+  });
+
+  final String name;
+  final int minimumLevel;
+  final int? maximumLevel;
+
+  factory DashboardTitleTier.fromJson(Map<String, dynamic> json) {
+    final name = json['name'];
+    final minimumLevel = json['minimumLevel'];
+    final maximumLevel = json['maximumLevel'];
+    if (name is! String ||
+        minimumLevel is! int ||
+        (maximumLevel != null && maximumLevel is! int)) {
+      throw const ApiException('The server returned invalid dashboard data.');
+    }
+    return DashboardTitleTier(
+      name: name,
+      minimumLevel: minimumLevel,
+      maximumLevel: maximumLevel as int?,
+    );
+  }
+}
+
+class DashboardXpTransaction {
+  const DashboardXpTransaction({
+    required this.id,
+    required this.sourceType,
+    required this.sourceId,
+    required this.rewardType,
+    required this.skillId,
+    required this.amount,
+    required this.characterLevelAtAward,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String sourceType;
+  final String sourceId;
+  final String rewardType;
+  final String? skillId;
+  final int amount;
+  final int characterLevelAtAward;
+  final String createdAt;
+
+  factory DashboardXpTransaction.fromJson(Map<String, dynamic> json) {
+    final id = json['id'];
+    final sourceType = json['sourceType'];
+    final sourceId = json['sourceId'];
+    final rewardType = json['rewardType'];
+    final skillId = json['skillId'];
+    final amount = json['amount'];
+    final characterLevelAtAward = json['characterLevelAtAward'];
+    final createdAt = json['createdAt'];
+    if (id is! String ||
+        (sourceType != 'QUEST' &&
+            sourceType != 'MILESTONE' &&
+            sourceType != 'GOAL') ||
+        sourceId is! String ||
+        (rewardType != 'CHARACTER_XP' && rewardType != 'SKILL_XP') ||
+        (skillId != null && skillId is! String) ||
+        amount is! int ||
+        characterLevelAtAward is! int ||
+        createdAt is! String) {
+      throw const ApiException('The server returned invalid dashboard data.');
+    }
+    return DashboardXpTransaction(
+      id: id,
+      sourceType: sourceType as String,
+      sourceId: sourceId,
+      rewardType: rewardType as String,
+      skillId: skillId as String?,
+      amount: amount,
+      characterLevelAtAward: characterLevelAtAward,
+      createdAt: createdAt,
     );
   }
 }
@@ -345,6 +433,8 @@ class DashboardData {
     required this.skills,
     required this.progressionOverview,
     required this.recentActivity,
+    this.titleTiers = const [],
+    this.xpTransactions = const [],
   });
 
   final DashboardCharacter character;
@@ -353,6 +443,8 @@ class DashboardData {
   final List<DashboardSkill> skills;
   final DashboardProgressionOverview progressionOverview;
   final List<DashboardActivity> recentActivity;
+  final List<DashboardTitleTier> titleTiers;
+  final List<DashboardXpTransaction> xpTransactions;
 
   factory DashboardData.fromJson(Map<String, dynamic> json) {
     final character = json['character'];
@@ -363,7 +455,9 @@ class DashboardData {
         progressionOverview is! Map<String, dynamic> ||
         json['activeQuests'] is! List ||
         json['skills'] is! List ||
-        json['recentActivity'] is! List) {
+        json['recentActivity'] is! List ||
+        (json['titleTiers'] != null && json['titleTiers'] is! List) ||
+        (json['xpTransactions'] != null && json['xpTransactions'] is! List)) {
       throw const ApiException('The server returned invalid dashboard data.');
     }
 
@@ -379,6 +473,12 @@ class DashboardData {
         json['recentActivity'],
         DashboardActivity.fromJson,
       ),
+      titleTiers: json['titleTiers'] == null
+          ? const []
+          : _readList(json['titleTiers'], DashboardTitleTier.fromJson),
+      xpTransactions: json['xpTransactions'] == null
+          ? const []
+          : _readList(json['xpTransactions'], DashboardXpTransaction.fromJson),
     );
   }
 }
