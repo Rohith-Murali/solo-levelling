@@ -27,6 +27,27 @@ void main() {
     mockClient.close();
   });
 
+  test(
+    'sends PATCH and DELETE requests with their respective methods',
+    () async {
+      final methods = <String>[];
+      final mockClient = MockClient((request) async {
+        methods.add(request.method);
+        return http.Response(jsonEncode({'data': {}}), 200);
+      });
+      final apiClient = ApiClient(
+        baseUri: Uri.parse('http://localhost:3000/api/'),
+        client: mockClient,
+      );
+
+      await apiClient.patchJson('quests/goals/goal-1', body: const {});
+      await apiClient.deleteJson('quests/goals/goal-1');
+
+      expect(methods, ['PATCH', 'DELETE']);
+      mockClient.close();
+    },
+  );
+
   test('maps API error responses to ApiException', () async {
     final mockClient = MockClient((_) async {
       return http.Response(
@@ -51,4 +72,47 @@ void main() {
     );
     mockClient.close();
   });
+
+  test(
+    'refreshes an expired access token and retries the request once',
+    () async {
+      var requestCount = 0;
+      final mockClient = MockClient((request) async {
+        requestCount++;
+        expect(
+          request.headers['authorization'],
+          'Bearer ${requestCount == 1 ? 'expired-token' : 'fresh-token'}',
+        );
+        return requestCount == 1
+            ? http.Response(
+                jsonEncode({
+                  'error': {
+                    'code': 'INVALID_ACCESS_TOKEN',
+                    'message': 'Your session is invalid or expired.',
+                  },
+                }),
+                401,
+              )
+            : http.Response(
+                jsonEncode({
+                  'data': {'status': 'ok'},
+                }),
+                200,
+              );
+      });
+      final apiClient = ApiClient(
+        baseUri: Uri.parse('http://localhost:3000/api/'),
+        client: mockClient,
+      )..onAccessTokenExpired = () async => 'fresh-token';
+
+      expect(
+        await apiClient.getJson('health/live', bearerToken: 'expired-token'),
+        {
+          'data': {'status': 'ok'},
+        },
+      );
+      expect(requestCount, 2);
+      mockClient.close();
+    },
+  );
 }

@@ -33,7 +33,13 @@ export const errorHandler: ErrorRequestHandler = (error, request, response, next
 
   if (!isExpected && statusCode >= 500) {
     logger.error(
-      { errorType: error instanceof Error ? error.name : "UnknownError", method: request.method, path: request.path },
+      {
+        errorType: error instanceof Error ? error.name : "UnknownError",
+        errorMessage: error instanceof Error ? error.message : undefined,
+        stack: error instanceof Error ? error.stack : undefined,
+        method: request.method,
+        path: request.path,
+      },
       "Unhandled request error",
     );
   }

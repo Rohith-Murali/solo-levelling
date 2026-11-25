@@ -30,6 +30,7 @@ Generate a local signing key with `node -e "console.log(require('node:crypto').r
 - `GET /api/dashboard` — return the authenticated player's character, skill, statistics, and available progression data.
 
 The character and starting skill are stored together on the user record so creation is atomic. The client submits only the name, avatar ID, and starting skill ID; the API assigns initial progression and returns `hasCharacter` in authenticated user responses.
+Character titles are resolved by the backend progression engine from the configurable level thresholds in `src/core/progression/config.ts`; the dashboard returns the current title alongside the character's rank and level.
 Quest, goal, reward-history, and activity models are not implemented yet, so the dashboard returns empty lists and an unavailable progression-history state for those sections.
 
 Passwords are hashed with bcrypt. Access tokens expire after 15 minutes; refresh tokens rotate and expire after 30 days. Refresh tokens are stored hashed in MongoDB. Email verification and password reset are not configured.

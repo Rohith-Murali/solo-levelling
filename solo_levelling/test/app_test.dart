@@ -204,6 +204,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('PLAYER STATUS'), findsOneWidget);
+    expect(find.text('Shadow Initiate'), findsOneWidget);
     expect(find.text('Hunter'), findsNWidgets(2));
     expect(find.text('CHARACTER INITIALIZATION'), findsNothing);
     expect(tester.takeException(), isNull);
@@ -234,17 +235,9 @@ void main() {
     await tester.tap(find.text('Sign in'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Quests'));
+    await tester.tap(find.text('Goals'));
     await tester.pumpAndSettle();
-    expect(find.text('QUEST CENTER'), findsOneWidget);
-    expect(find.text('Body'), findsOneWidget);
-
-    await tester.tap(find.text('Activate'));
-    await tester.pumpAndSettle();
-    expect(progressionRepository.activationCount, 1);
-    expect(find.text('Begin Body'), findsOneWidget);
-    await tester.tap(find.text('Complete quest'));
-    await tester.pumpAndSettle();
+    expect(find.text('GOALS'), findsOneWidget);
     expect(find.text('COMPLETED QUESTS'), findsNothing);
 
     await tester.tap(find.text('Skills'));
@@ -259,12 +252,10 @@ void main() {
     await tester.tap(find.text('History'));
     await tester.pumpAndSettle();
     expect(find.text('HISTORY & ANALYTICS'), findsOneWidget);
-    expect(find.text('COMPLETED QUESTS'), findsOneWidget);
-    expect(find.text('Begin Body'), findsOneWidget);
+    expect(find.text('COMPLETED QUESTS'), findsNothing);
 
     await tester.tap(find.text('Dashboard'));
     await tester.pumpAndSettle();
-    expect(find.text('Begin Body'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }
@@ -351,11 +342,13 @@ class _FakeDashboardRepository implements DashboardRepository {
         avatarId: 'avatar-01',
         avatarImagePath: 'avatars/Avatar 1.png',
         rank: 'E',
+        title: 'Shadow Initiate',
         level: 1,
         totalXp: 0,
         currentLevelXp: 0,
         xpToNextLevel: 100,
         skillUnlockTokens: 0,
+        stats: DashboardStats(),
       ),
       statistics: DashboardStatistics(
         completedQuestCount: 0,
@@ -389,48 +382,18 @@ class _FakeDashboardRepository implements DashboardRepository {
 }
 
 class _FakeProgressionRepository implements ProgressionRepository {
-  int activationCount = 0;
   List<ProgressionQuest> quests = const [];
 
   @override
   Future<List<ProgressionQuest>> loadQuests(String accessToken) async => quests;
 
   @override
-  Future<List<QuestTemplate>> loadTemplates(String accessToken) async => const [
-    QuestTemplate(
-      id: 'body',
-      name: 'Body',
-      description: 'Build physical health.',
-      minimumLevel: 1,
-      milestoneCount: 3,
-      questCount: 9,
-    ),
-  ];
-
-  @override
-  Future<void> activateTemplate(String accessToken, String templateId) async {
-    activationCount++;
-    quests = const [
-      ProgressionQuest(
-        id: 'quest-body-1',
-        title: 'Begin Body',
-        description: 'Start.',
-        type: 'MAIN',
-        difficulty: 'EASY',
-        primarySkillId: 'fitness',
-        objectives: [],
-        completed: false,
-        sourceTemplateId: 'body',
-      ),
-    ];
-  }
-
-  @override
-  Future<void> completeObjective(
-    String accessToken,
-    String questId,
-    String objectiveId,
-  ) async {}
+  Future<ProgressionStructure> loadStructure(String accessToken) async =>
+      ProgressionStructure(
+        goals: const [],
+        milestones: const [],
+        quests: quests,
+      );
 
   @override
   Future<void> completeQuest(String accessToken, String questId) async {
@@ -444,14 +407,111 @@ class _FakeProgressionRepository implements ProgressionRepository {
                   type: quest.type,
                   difficulty: quest.difficulty,
                   primarySkillId: quest.primarySkillId,
-                  objectives: quest.objectives,
                   completed: true,
-                  sourceTemplateId: quest.sourceTemplateId,
                 )
               : quest,
         )
         .toList(growable: false);
   }
+
+  @override
+  Future<void> createGoal(
+    String accessToken, {
+    required String title,
+    required String description,
+    String? primarySkillId,
+    String? skillName,
+    List<String> statContributions = const [],
+    List<Map<String, Object?>> milestones = const [],
+  }) async {}
+
+  @override
+  Future<void> updateGoal(
+    String accessToken, {
+    required String goalId,
+    required String title,
+    required String description,
+    String? primarySkillId,
+    List<String> statContributions = const [],
+  }) async {}
+
+  @override
+  Future<void> deleteGoal(String accessToken, String goalId) async {}
+
+  @override
+  Future<void> completeGoal(String accessToken, String goalId) async {}
+
+  @override
+  Future<void> completeMilestone(
+    String accessToken,
+    String goalId,
+    String milestoneId,
+  ) async {}
+
+  @override
+  Future<void> createMilestone(
+    String accessToken, {
+    required String goalId,
+    required String title,
+    required String description,
+  }) async {}
+
+  @override
+  Future<void> updateMilestone(
+    String accessToken, {
+    required String goalId,
+    required String milestoneId,
+    required String title,
+    required String description,
+  }) async {}
+
+  @override
+  Future<void> deleteMilestone(
+    String accessToken,
+    String goalId,
+    String milestoneId,
+  ) async {}
+
+  @override
+  Future<void> createGoalQuest(
+    String accessToken, {
+    required String goalId,
+    required String title,
+    required String description,
+    required String difficulty,
+    String? milestoneId,
+    List<String> statContributions = const [],
+  }) async {}
+
+  @override
+  Future<void> updateGoalQuest(
+    String accessToken, {
+    required String goalId,
+    required String questId,
+    required String title,
+    required String description,
+    required String difficulty,
+    String? milestoneId,
+    List<String> statContributions = const [],
+  }) async {}
+
+  @override
+  Future<void> deleteGoalQuest(
+    String accessToken,
+    String goalId,
+    String questId,
+  ) async {}
+
+  @override
+  Future<void> createSideQuest(
+    String accessToken, {
+    required String title,
+    required String description,
+    required String difficulty,
+    String? primarySkillId,
+    String? skillName,
+    List<String> statContributions = const [],
+  }) async {}
 
   @override
   Future<List<LibrarySkill>> loadSkillLibrary(

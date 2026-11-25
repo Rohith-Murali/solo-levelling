@@ -1,4 +1,8 @@
 import { model, Schema } from "mongoose";
+import { defaultProgressionConfig } from "../core/progression/config.js";
+import { resolveTitle } from "../core/progression/resolvers.js";
+
+const initialTitle = resolveTitle(defaultProgressionConfig.initialLevel);
 
 export interface StartingSkillRecord {
   id: string;
@@ -16,11 +20,13 @@ export interface SkillRecord extends StartingSkillRecord {
   status: "ACTIVE" | "INACTIVE";
 }
 
-export interface ObjectiveRecord {
-  id: string;
-  title: string;
-  completed: boolean;
-}
+export type CharacterStats = {
+  strength: number;
+  intelligence: number;
+  vitality: number;
+  discipline: number;
+  perception: number;
+};
 
 export interface QuestRecord {
   id: string;
@@ -29,25 +35,35 @@ export interface QuestRecord {
   type: "MAIN" | "SIDE";
   difficulty: string;
   primarySkillId?: string;
-  objectives: ObjectiveRecord[];
+  goalId?: string;
+  milestoneId?: string;
+  requiredForCompletion?: boolean;
+  statContributions: (keyof CharacterStats)[];
   completed: boolean;
   completedAt?: Date;
-  sourceTemplateId?: string;
 }
 
 export interface MilestoneRecord {
   id: string;
   title: string;
+  description: string;
   questIds: string[];
   completed: boolean;
+  completedAt?: Date;
 }
 
 export interface GoalRecord {
   id: string;
   title: string;
   description: string;
+  primarySkillId: string;
+  statContributions?: (keyof CharacterStats)[];
   milestoneIds: string[];
   completed: boolean;
+  status: "ACTIVE" | "COMPLETED" | "ARCHIVED";
+  createdAt: Date;
+  completedAt?: Date;
+  archivedAt?: Date;
 }
 
 export interface ProgressionEventRecord {
@@ -70,6 +86,7 @@ export interface CharacterRecord {
   rank: string;
   skillUnlockTokens: number;
   startingSkill: StartingSkillRecord;
+  stats: CharacterStats;
   title: string;
   titleHistory: string[];
   totalXp: number;
@@ -112,12 +129,6 @@ const skillSchema = new Schema<SkillRecord>({
   status: { type: String, enum: ["ACTIVE", "INACTIVE"], required: true },
 }, { _id: false });
 
-const objectiveSchema = new Schema<ObjectiveRecord>({
-  id: { type: String, required: true },
-  title: { type: String, required: true },
-  completed: { type: Boolean, required: true },
-}, { _id: false });
-
 const questSchema = new Schema<QuestRecord>({
   id: { type: String, required: true },
   title: { type: String, required: true },
@@ -125,25 +136,35 @@ const questSchema = new Schema<QuestRecord>({
   type: { type: String, enum: ["MAIN", "SIDE"], required: true },
   difficulty: { type: String, required: true },
   primarySkillId: { type: String, required: false },
-  objectives: { type: [objectiveSchema], required: true },
+  goalId: { type: String, required: false },
+  milestoneId: { type: String, required: false },
+  requiredForCompletion: { type: Boolean, required: false },
+  statContributions: { type: [String], enum: ["strength", "intelligence", "vitality", "discipline", "perception"], required: true, default: [] },
   completed: { type: Boolean, required: true },
   completedAt: { type: Date, required: false },
-  sourceTemplateId: { type: String, required: false },
 }, { _id: false });
 
 const milestoneSchema = new Schema<MilestoneRecord>({
   id: { type: String, required: true },
   title: { type: String, required: true },
+  description: { type: String, required: true, default: "" },
   questIds: { type: [String], required: true },
   completed: { type: Boolean, required: true },
+  completedAt: { type: Date, required: false },
 }, { _id: false });
 
 const goalSchema = new Schema<GoalRecord>({
   id: { type: String, required: true },
   title: { type: String, required: true },
   description: { type: String, required: true },
+  primarySkillId: { type: String, required: true, default: "" },
+  statContributions: { type: [String], enum: ["strength", "intelligence", "vitality", "discipline", "perception"], required: false, default: [] },
   milestoneIds: { type: [String], required: true },
   completed: { type: Boolean, required: true },
+  status: { type: String, enum: ["ACTIVE", "COMPLETED", "ARCHIVED"], required: true, default: "ACTIVE" },
+  createdAt: { type: Date, required: true, default: Date.now },
+  completedAt: { type: Date, required: false },
+  archivedAt: { type: Date, required: false },
 }, { _id: false });
 
 const progressionEventSchema = new Schema<ProgressionEventRecord>({
@@ -167,8 +188,19 @@ const characterSchema = new Schema<CharacterRecord>(
     rank: { type: String, required: true },
     skillUnlockTokens: { type: Number, required: true },
     startingSkill: { type: startingSkillSchema, required: true },
-    title: { type: String, required: true, default: "Shadow Initiate" },
-    titleHistory: { type: [String], required: true, default: ["Shadow Initiate"] },
+    stats: {
+      type: new Schema({
+        strength: { type: Number, required: true, default: 1 },
+        intelligence: { type: Number, required: true, default: 1 },
+        vitality: { type: Number, required: true, default: 1 },
+        discipline: { type: Number, required: true, default: 1 },
+        perception: { type: Number, required: true, default: 1 },
+      }, { _id: false }),
+      required: true,
+      default: { strength: 1, intelligence: 1, vitality: 1, discipline: 1, perception: 1 },
+    },
+    title: { type: String, required: true, default: initialTitle },
+    titleHistory: { type: [String], required: true, default: [initialTitle] },
     totalXp: { type: Number, required: true, default: 0 },
     version: { type: Number, required: true, default: 0 },
     skills: { type: [skillSchema], required: true, default: [] },

@@ -11,6 +11,8 @@ class ApiClient {
       _client = client ?? http.Client(),
       _ownsClient = client == null;
 
+  Future<String?> Function()? onAccessTokenExpired;
+
   final Uri _baseUri;
   final http.Client _client;
   final bool _ownsClient;
@@ -30,17 +32,35 @@ class ApiClient {
     return _request('POST', path, body: body, bearerToken: bearerToken);
   }
 
+  Future<Map<String, dynamic>> patchJson(
+    String path, {
+    required Map<String, Object?> body,
+    String? bearerToken,
+  }) async {
+    return _request('PATCH', path, body: body, bearerToken: bearerToken);
+  }
+
+  Future<Map<String, dynamic>> deleteJson(
+    String path, {
+    String? bearerToken,
+  }) async {
+    return _request('DELETE', path, bearerToken: bearerToken);
+  }
+
   Future<Map<String, dynamic>> _request(
     String method,
     String path, {
     Map<String, Object?>? body,
     String? bearerToken,
   }) async {
-    if (method != 'GET' && method != 'POST') {
+    if (method != 'GET' &&
+        method != 'POST' &&
+        method != 'PATCH' &&
+        method != 'DELETE') {
       throw ArgumentError.value(
         method,
         'method',
-        'Only GET and POST are supported.',
+        'Only GET, POST, PATCH, and DELETE are supported.',
       );
     }
 
@@ -52,21 +72,52 @@ class ApiClient {
     if (bearerToken != null) {
       headers['Authorization'] = 'Bearer $bearerToken';
     }
-    late final http.Response response;
+    final response = await _send(method, normalizedPath, headers, body);
 
+    if (response.statusCode == 401 &&
+        bearerToken != null &&
+        onAccessTokenExpired != null) {
+      final refreshedToken = await onAccessTokenExpired!();
+      if (refreshedToken != null && refreshedToken.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $refreshedToken';
+        final retryResponse = await _send(
+          method,
+          normalizedPath,
+          headers,
+          body,
+        );
+        return _decodeResponse(retryResponse);
+      }
+    }
+
+    return _decodeResponse(response);
+  }
+
+  Future<http.Response> _send(
+    String method,
+    String path,
+    Map<String, String> headers,
+    Map<String, Object?>? body,
+  ) async {
     try {
-      final uri = _baseUri.resolve(normalizedPath);
-      response =
-          await (method == 'GET'
-                  ? _client.get(uri, headers: headers)
-                  : _client.post(uri, headers: headers, body: jsonEncode(body)))
-              .timeout(const Duration(seconds: 10));
+      final uri = _baseUri.resolve(path);
+      final encodedBody = body == null ? null : jsonEncode(body);
+      final response = switch (method) {
+        'GET' => _client.get(uri, headers: headers),
+        'POST' => _client.post(uri, headers: headers, body: encodedBody),
+        'PATCH' => _client.patch(uri, headers: headers, body: encodedBody),
+        'DELETE' => _client.delete(uri, headers: headers),
+        _ => throw ArgumentError.value(method, 'method'),
+      };
+      return await response.timeout(const Duration(seconds: 10));
     } on TimeoutException {
       throw const ApiException('The request timed out.');
     } on http.ClientException {
       throw const ApiException('Unable to reach the server.');
     }
+  }
 
+  Map<String, dynamic> _decodeResponse(http.Response response) {
     final Object? decoded;
     try {
       decoded = jsonDecode(response.body);

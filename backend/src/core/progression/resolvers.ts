@@ -1,4 +1,5 @@
-import type { ProgressionConfig } from "./config.js";
+import { defaultProgressionConfig, type ProgressionConfig } from "./config.js";
+import type { QuestDifficulty } from "./models.js";
 
 export function resolveRank(level: number, config: ProgressionConfig): string {
   const rank = [...config.ranks].reverse().find((candidate) => candidate.minimumLevel <= level);
@@ -6,10 +7,29 @@ export function resolveRank(level: number, config: ProgressionConfig): string {
   return rank.name;
 }
 
-export function resolveTitle(rank: string, config: ProgressionConfig): string {
-  const title = config.titles.find((candidate) => candidate.rank === rank);
-  if (!title) throw new Error(`No title configured for rank ${rank}.`);
+export function resolveTitle(level: number, config: ProgressionConfig = defaultProgressionConfig): string {
+  const title = [...config.titles].reverse().find((candidate) => candidate.minimumLevel <= level);
+  if (!title) throw new Error(`No title configured for level ${level}.`);
   return title.name;
+}
+
+export function titlesUnlockedBetweenLevels(previousLevel: number, currentLevel: number, config: ProgressionConfig): string[] {
+  return config.titles
+    .filter((title) => title.minimumLevel > previousLevel && title.minimumLevel <= currentLevel)
+    .map((title) => title.name);
+}
+
+export function normalizeQuestDifficulty(difficulty = "NORMAL"): QuestDifficulty {
+  const normalized = difficulty.trim().toUpperCase();
+  if (normalized === "MEDIUM") return "NORMAL";
+  if (normalized === "EASY" || normalized === "NORMAL" || normalized === "HARD" || normalized === "EPIC") {
+    return normalized;
+  }
+  throw new Error(`Unsupported quest difficulty: ${difficulty}.`);
+}
+
+export function characterXpReward(baseXp: number, level: number, config: ProgressionConfig = defaultProgressionConfig): number {
+  return Math.round(baseXp * config.characterXpMultiplier(level));
 }
 
 export function unlockTokensAtLevel(level: number, config: ProgressionConfig): number {

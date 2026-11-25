@@ -9,6 +9,7 @@ import '../domain/dashboard_repository.dart';
 import '../../progression/domain/progression_data.dart';
 import '../../progression/domain/progression_repository.dart';
 import '../../../shared/widgets/system_notification.dart';
+import '../../../shared/widgets/holographic_dialog.dart';
 
 part 'dashboard_header_widgets.dart';
 part 'dashboard_quest_skill_widgets.dart';
@@ -21,6 +22,7 @@ class DashboardScreen extends StatefulWidget {
     required this.onCharacterRequired,
     this.onCharacterLoaded,
     this.onViewActivity,
+    this.onProgressionChanged,
     this.progressionRepository,
     super.key,
   });
@@ -30,6 +32,7 @@ class DashboardScreen extends StatefulWidget {
   final VoidCallback onCharacterRequired;
   final ValueChanged<DashboardCharacter>? onCharacterLoaded;
   final VoidCallback? onViewActivity;
+  final VoidCallback? onProgressionChanged;
   final ProgressionRepository? progressionRepository;
 
   @override
@@ -42,8 +45,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isLoading = true;
   bool _isRefreshing = false;
   List<ProgressionQuest>? _quests;
-  List<QuestTemplate>? _templates;
-  final Set<String> _activatingTemplateIds = <String>{};
+  List<ProgressionGoal>? _goals;
 
   @override
   void initState() {
@@ -74,15 +76,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final quests = progressionRepository == null
           ? null
           : await progressionRepository.loadQuests(token);
-      final templates = progressionRepository == null
+      final structure = progressionRepository == null
           ? null
-          : await progressionRepository.loadTemplates(token);
+          : await progressionRepository.loadStructure(token);
       if (!mounted) return;
       setState(() {
         _data = data;
         _errorMessage = null;
         _quests = quests;
-        _templates = templates;
+        _goals = structure?.goals;
       });
       widget.onCharacterLoaded?.call(data.character);
     } on ApiException catch (error) {
@@ -160,13 +162,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const SizedBox(height: 22),
                 _ActiveQuestsSection(
                   quests: _quests ?? const [],
+                  goals: _goals ?? const [],
                   skills: data.skills,
                   characterLevel: data.character.level,
-                  templates: _templates ?? const [],
-                  onObjectiveComplete: _completeObjective,
                   onQuestComplete: _completeQuest,
-                  onActivateTemplate: _activateTemplate,
-                  activatingTemplateIds: _activatingTemplateIds,
                 ),
                 const SizedBox(height: 22),
                 _AcquiredSkillsSection(skills: data.skills),
@@ -228,15 +227,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     if (snapshot.connectionState != ConnectionState.done) {
                       return const Center(child: CircularProgressIndicator());
                     }
-                    if (snapshot.hasError)
+                    if (snapshot.hasError) {
                       return const Text(
                         'The skill library could not be loaded.',
                       );
+                    }
                     final skills = snapshot.data ?? const <LibrarySkill>[];
-                    if (character.skillUnlockTokens == 0)
+                    if (character.skillUnlockTokens == 0) {
                       return const Text(
                         'No skill unlock tokens are available yet.',
                       );
+                    }
                     return ListView(
                       shrinkWrap: true,
                       children: [
@@ -278,13 +279,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Future<void> _completeObjective(String questId, String objectiveId) async {
-    await _runProgressionAction(
-      (repository, token) =>
-          repository.completeObjective(token, questId, objectiveId),
-    );
-  }
-
   Future<void> _completeQuest(String questId) async {
     await _runProgressionAction(
       (repository, token) => repository.completeQuest(token, questId),
@@ -292,26 +286,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Future<void> _activateTemplate(String templateId) async {
-    if (_activatingTemplateIds.contains(templateId)) return;
-    setState(() => _activatingTemplateIds.add(templateId));
-    try {
-      await _runProgressionAction(
-        (repository, token) => repository.activateTemplate(token, templateId),
-        reconcileAlreadyActive: true,
-        kind: _ProgressionActionKind.template,
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _activatingTemplateIds.remove(templateId));
-      }
-    }
-  }
-
   Future<void> _runProgressionAction(
     Future<void> Function(ProgressionRepository repository, String token)
     action, {
-    bool reconcileAlreadyActive = false,
     _ProgressionActionKind? kind,
   }) async {
     final repository = widget.progressionRepository;
@@ -338,6 +315,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ]);
         }
+        if (mounted) widget.onProgressionChanged?.call();
       } else if (kind == _ProgressionActionKind.quest) {
         final xp = before == null
             ? 0
@@ -348,57 +326,87 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final notifications = <SystemNotificationData>[
           SystemNotificationData(
             icon: Icons.check_circle_outline,
-            message: 'QUEST COMPLETED\n\n+${xp} XP EARNED',
+            message: 'QUEST COMPLETED\n\n+$xp XP EARNED',
           ),
         ];
-        if (before != null && after.character.level > before.character.level) {
+        final previousActivityIds = {
+          for (final activity in before?.recentActivity ?? const [])
+            activity.id,
+        };
+        final characterLevelledUp = after.recentActivity.any(
+          (activity) =>
+              !previousActivityIds.contains(activity.id) &&
+              activity.type == 'CHARACTER_LEVEL_INCREASED',
+        );
+        if (characterLevelledUp ||
+            (before != null &&
+                after.character.level > before.character.level)) {
+          final levelsGained = before == null
+              ? 1
+              : after.character.level - before.character.level;
           notifications.add(
             SystemNotificationData(
               icon: Icons.trending_up,
-              message: 'LEVELLED UP\n\nLV ${after.character.level}',
+              message: before != null && levelsGained > 1
+                  ? 'LEVELLED UP\n\nLV ${before.character.level} -> ${after.character.level} (+$levelsGained)'
+                  : 'LEVELLED UP\n\nLV ${after.character.level}',
             ),
           );
         }
         if (before != null) {
+          final tokensEarned =
+              after.character.skillUnlockTokens -
+              before.character.skillUnlockTokens;
+          if (tokensEarned > 0) {
+            notifications.add(
+              SystemNotificationData(
+                icon: Icons.token_outlined,
+                message:
+                    '$tokensEarned SKILL UNLOCK TOKEN${tokensEarned == 1 ? '' : 'S'} EARNED',
+              ),
+            );
+          }
           final oldSkills = {
             for (final skill in before.skills) skill.id: skill,
           };
           for (final skill in after.skills) {
             final oldSkill = oldSkills[skill.id];
-            if (oldSkill != null && skill.level > oldSkill.level) {
+            final skillXpGained = (skill.totalXp - (oldSkill?.totalXp ?? 0))
+                .clamp(0, 1 << 30);
+            if (skillXpGained > 0) {
               notifications.add(
                 SystemNotificationData(
                   icon: Icons.auto_awesome,
                   message:
-                      'SKILL ${skill.name.toUpperCase()} LEVELLED UP\n\nLV ${skill.level}',
+                      '${skill.name.toUpperCase()}\n+$skillXpGained SKILL XP',
+                ),
+              );
+            }
+            final skillLevelledUp = after.recentActivity.any(
+              (activity) =>
+                  !previousActivityIds.contains(activity.id) &&
+                  activity.type == 'SKILL_LEVEL_INCREASED' &&
+                  activity.relatedEntityId == skill.id,
+            );
+            if (skillLevelledUp ||
+                (oldSkill != null && skill.level > oldSkill.level)) {
+              notifications.add(
+                SystemNotificationData(
+                  icon: Icons.auto_awesome,
+                  message: oldSkill != null && skill.level - oldSkill.level > 1
+                      ? 'SKILL ${skill.name.toUpperCase()} LEVELLED UP\n\nLV ${oldSkill.level} -> ${skill.level}'
+                      : 'SKILL ${skill.name.toUpperCase()} LEVELLED UP\n\nLV ${skill.level}',
                 ),
               );
             }
           }
         }
         await SystemNotification.showStack(context, notifications);
-      } else if (kind == _ProgressionActionKind.template) {
-        final oldIds = {
-          for (final quest in before?.activeQuests ?? const []) quest.id,
-        };
-        final added = after.activeQuests.where(
-          (quest) => !oldIds.contains(quest.id),
-        );
-        if (added.isNotEmpty) {
-          await SystemNotification.show(
-            context,
-            icon: Icons.assignment_outlined,
-            message: 'NEW QUEST UNLOCKED\n\n${added.first.title}',
-          );
-        }
+        if (mounted) widget.onProgressionChanged?.call();
       }
     } on ApiException catch (error) {
-      if (error.code == 'CONCURRENT_UPDATE' ||
-          (reconcileAlreadyActive && error.code == 'TEMPLATE_ALREADY_ACTIVE')) {
+      if (error.code == 'CONCURRENT_UPDATE') {
         await _loadDashboard(refresh: true);
-      }
-      if (reconcileAlreadyActive && error.code == 'TEMPLATE_ALREADY_ACTIVE') {
-        return;
       }
       if (mounted) setState(() => _errorMessage = error.message);
     } catch (error, stackTrace) {
@@ -411,4 +419,4 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
-enum _ProgressionActionKind { skill, quest, template }
+enum _ProgressionActionKind { skill, quest }

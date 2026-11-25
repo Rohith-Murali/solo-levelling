@@ -1,6 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
-enum PrimaryDestination { dashboard, quests, skills, character, history }
+enum PrimaryDestination { dashboard, goals, skills, character, history }
 
 class NavigationDestinationConfig {
   const NavigationDestinationConfig({
@@ -24,10 +24,10 @@ const primaryDestinations = <NavigationDestinationConfig>[
     icon: Icons.home_outlined,
   ),
   NavigationDestinationConfig(
-    destination: PrimaryDestination.quests,
-    label: 'Quests',
-    drawerLabel: 'Quest Center',
-    icon: Icons.track_changes,
+    destination: PrimaryDestination.goals,
+    label: 'Goals',
+    drawerLabel: 'Goals',
+    icon: Icons.flag_outlined,
   ),
   NavigationDestinationConfig(
     destination: PrimaryDestination.skills,
@@ -43,7 +43,7 @@ const primaryDestinations = <NavigationDestinationConfig>[
   ),
   NavigationDestinationConfig(
     destination: PrimaryDestination.history,
-    label: 'Activity',
+    label: 'History',
     drawerLabel: 'Activity Log',
     icon: Icons.bar_chart,
   ),

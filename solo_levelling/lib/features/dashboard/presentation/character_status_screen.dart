@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:material_ui/material_ui.dart';
 
 import '../../../app/theme/app_colors.dart';
@@ -146,6 +148,10 @@ class _CharacterStatusScreenState extends State<CharacterStatusScreen> {
                                 color: AppColors.textSecondary,
                               ),
                             ),
+                            Text(
+                              character.title,
+                              style: const TextStyle(color: AppColors.accent),
+                            ),
                           ],
                         ),
                       ),
@@ -184,6 +190,14 @@ class _CharacterStatusScreenState extends State<CharacterStatusScreen> {
             ),
             const SizedBox(height: 18),
             Text(
+              'CHARACTER STATS',
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(color: AppColors.accent, letterSpacing: 1),
+            ),
+            const SizedBox(height: 10),
+            _CharacterStats(stats: character.stats),
+            const SizedBox(height: 18),
+            Text(
               'ACQUIRED SKILLS',
               style: Theme.of(context).textTheme.titleMedium
                   ?.copyWith(color: AppColors.accent, letterSpacing: 1),
@@ -204,6 +218,194 @@ class _CharacterStatusScreenState extends State<CharacterStatusScreen> {
       ),
     );
   }
+}
+
+class _CharacterStats extends StatelessWidget {
+  const _CharacterStats({required this.stats});
+  final DashboardStats stats;
+
+  @override
+  Widget build(BuildContext context) {
+    final values = <String, int>{
+      'STRENGTH': stats.strength,
+      'INTELLIGENCE': stats.intelligence,
+      'VITALITY': stats.vitality,
+      'DISCIPLINE': stats.discipline,
+      'PERCEPTION': stats.perception,
+    };
+    final maxStat = values.values.reduce((a, b) => a > b ? a : b);
+    final maxValue = maxStat < 5 ? 5 : maxStat;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(8, 12, 8, 14),
+      decoration: BoxDecoration(
+        color: AppColors.surface.withOpacity(.7),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          SizedBox(
+            height: 315,
+            width: double.infinity,
+            child: CustomPaint(
+              painter: _StatsRadarPainter(
+                labels: values.keys.toList(growable: false),
+                values: values.values.toList(growable: false),
+                maxValue: maxValue,
+              ),
+            ),
+          ),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 10,
+            runSpacing: 8,
+            children: [
+              for (final entry in values.entries)
+                _RadarValue(label: entry.key, value: entry.value),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RadarValue extends StatelessWidget {
+  const _RadarValue({required this.label, required this.value});
+
+  final String label;
+  final int value;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(
+        width: 7,
+        height: 7,
+        decoration: const BoxDecoration(
+          color: AppColors.primaryGlow,
+          shape: BoxShape.circle,
+        ),
+      ),
+      const SizedBox(width: 5),
+      Text(
+        '$label  $value',
+        style: const TextStyle(
+          color: AppColors.textSecondary,
+          fontSize: 10,
+          letterSpacing: .4,
+        ),
+      ),
+    ],
+  );
+}
+
+class _StatsRadarPainter extends CustomPainter {
+  _StatsRadarPainter({
+    required this.labels,
+    required this.values,
+    required this.maxValue,
+  });
+
+  final List<String> labels;
+  final List<int> values;
+  final int maxValue;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const sides = 5;
+    final center = Offset(size.width / 2, size.height / 2 + 3);
+    final radius = math
+        .min(size.width / 2 - 62, size.height / 2 - 48)
+        .toDouble();
+    final angles = List<double>.generate(
+      sides,
+      (index) => -math.pi / 2 + (2 * math.pi * index / sides),
+    );
+
+    Offset point(double distance, int index) =>
+        center +
+        Offset(
+          math.cos(angles[index]) * distance,
+          math.sin(angles[index]) * distance,
+        );
+
+    final gridPaint = Paint()
+      ..color = AppColors.textMuted.withOpacity(.48)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    for (var level = 1; level <= 5; level++) {
+      final path = Path()
+        ..moveTo(
+          point(radius * level / 5, 0).dx,
+          point(radius * level / 5, 0).dy,
+        );
+      for (var index = 1; index < sides; index++) {
+        final vertex = point(radius * level / 5, index);
+        path.lineTo(vertex.dx, vertex.dy);
+      }
+      path.close();
+      canvas.drawPath(path, gridPaint);
+    }
+
+    for (var index = 0; index < sides; index++) {
+      final vertex = point(radius, index);
+      canvas.drawLine(center, vertex, gridPaint);
+    }
+
+    final dataPath = Path();
+    for (var index = 0; index < sides; index++) {
+      final value = (values[index].clamp(0, maxValue) / maxValue).toDouble();
+      final vertex = point(radius * value, index);
+      if (index == 0) {
+        dataPath.moveTo(vertex.dx, vertex.dy);
+      } else {
+        dataPath.lineTo(vertex.dx, vertex.dy);
+      }
+    }
+    dataPath.close();
+    canvas.drawPath(
+      dataPath,
+      Paint()
+        ..color = AppColors.primary.withOpacity(.38)
+        ..style = PaintingStyle.fill,
+    );
+    canvas.drawPath(
+      dataPath,
+      Paint()
+        ..color = AppColors.primaryGlow
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
+    );
+
+    final labelStyle = const TextStyle(
+      color: AppColors.textPrimary,
+      fontSize: 12,
+      fontWeight: FontWeight.w600,
+      letterSpacing: .5,
+    );
+    for (var index = 0; index < sides; index++) {
+      final labelPosition = point(radius + 28, index);
+      final text = TextPainter(
+        text: TextSpan(text: labels[index], style: labelStyle),
+        textDirection: TextDirection.ltr,
+      )..layout(maxWidth: 110);
+      final x = labelPosition.dx - text.width / 2;
+      final y = labelPosition.dy - text.height / 2;
+      text.paint(
+        canvas,
+        Offset(x.clamp(0, size.width - text.width).toDouble(), y),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _StatsRadarPainter oldDelegate) =>
+      oldDelegate.maxValue != maxValue ||
+      oldDelegate.values != values ||
+      oldDelegate.labels != labels;
 }
 
 class _StatusStats extends StatelessWidget {

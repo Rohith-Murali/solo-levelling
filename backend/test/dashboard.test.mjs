@@ -24,8 +24,9 @@ function createCharacter() {
     name: "Hunter",
     avatarId: "avatar-02",
     rank: "D",
+    title: "Shadow Initiate",
     level: 2,
-    xp: 100,
+    xp: 0,
     skillUnlockTokens: 3,
     startingSkill: {
       id: "focus",
@@ -63,11 +64,19 @@ test("dashboard returns persisted character data and honest empty-history state"
       avatarId: "avatar-02",
       avatarImagePath: "avatars/Avatar 2.png",
       rank: "D",
+      title: "Shadow Initiate",
       level: 2,
       totalXp: 100,
       currentLevelXp: 0,
       xpToNextLevel: 150,
       skillUnlockTokens: 3,
+      stats: {
+        strength: 1,
+        intelligence: 1,
+        vitality: 1,
+        discipline: 1,
+        perception: 1,
+      },
     });
     assert.equal(response.body.data.skills[0].name, "Focus");
     assert.equal(response.body.data.skills[0].currentLevelXp, 12);
@@ -120,6 +129,16 @@ test("dashboard history and skill progress reflect persisted progression events"
         type: "CHARACTER_XP_GAINED",
         relatedEntityId: "quest-1",
         xpChange: 100,
+        metadata: {
+          xpTransaction: {
+            sourceType: "QUEST",
+            sourceId: "quest-1",
+            rewardType: "CHARACTER_XP",
+            skillId: null,
+            amount: 100,
+            characterLevelAtAward: 2,
+          },
+        },
         occurredAt,
       },
       {
@@ -127,6 +146,16 @@ test("dashboard history and skill progress reflect persisted progression events"
         type: "SKILL_XP_GAINED",
         relatedEntityId: "focus",
         xpChange: 50,
+        metadata: {
+          xpTransaction: {
+            sourceType: "QUEST",
+            sourceId: "quest-1",
+            rewardType: "SKILL_XP",
+            skillId: "focus",
+            amount: 50,
+            characterLevelAtAward: 2,
+          },
+        },
         occurredAt,
       },
     ],
@@ -147,6 +176,18 @@ test("dashboard history and skill progress reflect persisted progression events"
     assert.equal(data.recentActivity.length, 3);
     assert.equal(data.skills[0].currentLevelXp, 25);
     assert.equal(data.skills[0].xpToNextLevel, 150);
+    assert.deepEqual(
+      data.xpTransactions.map((transaction) => [
+        transaction.rewardType,
+        transaction.amount,
+        transaction.characterLevelAtAward,
+      ]),
+      [
+        ["CHARACTER_XP", 100, 2],
+        ["SKILL_XP", 50, 2],
+      ],
+    );
+    assert.equal(data.titleTiers.length, 11);
   } finally {
     User.findById = originalFindById;
   }

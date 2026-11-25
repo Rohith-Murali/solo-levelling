@@ -3,37 +3,37 @@ part of 'dashboard_screen.dart';
 class _ActiveQuestsSection extends StatelessWidget {
   const _ActiveQuestsSection({
     required this.quests,
+    required this.goals,
     required this.skills,
     required this.characterLevel,
-    required this.templates,
-    required this.onObjectiveComplete,
     required this.onQuestComplete,
-    required this.onActivateTemplate,
-    required this.activatingTemplateIds,
   });
 
   final List<ProgressionQuest> quests;
+  final List<ProgressionGoal> goals;
   final List<DashboardSkill> skills;
   final int characterLevel;
-  final List<QuestTemplate> templates;
-  final Future<void> Function(String questId, String objectiveId)
-  onObjectiveComplete;
   final Future<void> Function(String questId) onQuestComplete;
-  final Future<void> Function(String templateId) onActivateTemplate;
-  final Set<String> activatingTemplateIds;
 
   @override
   Widget build(BuildContext context) {
     final activeQuests = quests
         .where((quest) => !quest.completed)
         .toList(growable: false);
-    final mainQuests = activeQuests
-        .where((quest) => quest.type == 'MAIN')
-        .take(3)
-        .toList(growable: false);
-    final sideQuests = activeQuests
-        .where((quest) => quest.type != 'MAIN')
-        .take(3)
+    final goalSections = <({String title, List<ProgressionQuest> quests})>[
+      for (final goal in goals)
+        if (activeQuests.any((quest) => quest.goalId == goal.id))
+          (
+            title: goal.title,
+            quests: activeQuests
+                .where((q) => q.goalId == goal.id)
+                .take(2)
+                .toList(growable: false),
+          ),
+    ];
+    final unassigned = activeQuests
+        .where((q) => q.goalId == null)
+        .take(2)
         .toList(growable: false);
     final reward = 100 + (50 * (characterLevel - 1));
     String? skillName(ProgressionQuest quest) => skills
@@ -56,7 +56,7 @@ class _ActiveQuestsSection extends StatelessWidget {
           const _EmptySectionMessage(
             icon: Icons.assignment_outlined,
             title: 'No quests detected.',
-            detail: 'Activate a progression template to begin.',
+            detail: 'Create a quest to begin.',
           )
         else
           for (final quest in items) ...[
@@ -64,8 +64,30 @@ class _ActiveQuestsSection extends StatelessWidget {
               quest: quest,
               reward: reward,
               skillName: skillName(quest),
-              onObjectiveComplete: onObjectiveComplete,
               onQuestComplete: onQuestComplete,
+              showActions: false,
+              onTap: () => showDialog<void>(
+                context: context,
+                builder: (_) => HolographicDialog(
+                  title: 'Quest details',
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Close'),
+                    ),
+                  ],
+                  child: _QuestCard(
+                    quest: quest,
+                    reward: reward,
+                    skillName: skillName(quest),
+                    onQuestComplete: (questId) async {
+                      Navigator.pop(context);
+                      await onQuestComplete(questId);
+                    },
+                    showActions: true,
+                  ),
+                ),
+              ),
             ),
             if (quest != items.last) const SizedBox(height: 10),
           ],
@@ -80,33 +102,32 @@ class _ActiveQuestsSection extends StatelessWidget {
                 const _EmptySectionMessage(
                   icon: Icons.assignment_outlined,
                   title: 'No active quests detected.',
-                  detail: 'Activate a progression template to begin your next quest.',
+                  detail: 'Create a goal or side quest to begin.',
                 ),
-                for (final template in templates) ...[
-                  _TemplateCard(
-                    template: template,
-                    onActivate: onActivateTemplate,
-                    isActivating: activatingTemplateIds.contains(template.id),
-                  ),
-                  if (template != templates.last) const SizedBox(height: 10),
-                ],
               ],
             )
           : LayoutBuilder(
               builder: (context, constraints) {
-                final main = questColumn('MAIN QUESTS', mainQuests);
-                final side = questColumn('SIDE QUESTS', sideQuests);
-                if (constraints.maxWidth < 680) {
-                  return Column(
-                    children: [main, const SizedBox(height: 18), side],
-                  );
-                }
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                final sections =
+                    [
+                          ...goalSections,
+                          if (unassigned.isNotEmpty)
+                            (title: 'SIDE QUESTS', quests: unassigned),
+                        ]
+                        .map(
+                          (section) =>
+                              questColumn(section.title, section.quests),
+                        )
+                        .toList();
+                if (sections.isEmpty) return questColumn('QUESTS', const []);
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(child: main),
-                    const SizedBox(width: 16),
-                    SizedBox(width: 250, child: side),
+                    for (var index = 0; index < sections.length; index++) ...[
+                      sections[index],
+                      if (index != sections.length - 1)
+                        const SizedBox(height: 18),
+                    ],
                   ],
                 );
               },
@@ -120,30 +141,24 @@ class _QuestCard extends StatelessWidget {
     required this.quest,
     required this.reward,
     required this.skillName,
-    required this.onObjectiveComplete,
     required this.onQuestComplete,
+    this.showActions = true,
+    this.onTap,
   });
 
   final ProgressionQuest quest;
   final int reward;
   final String? skillName;
-  final Future<void> Function(String questId, String objectiveId)
-  onObjectiveComplete;
   final Future<void> Function(String questId) onQuestComplete;
+  final bool showActions;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final completedObjectives = quest.objectives
-        .where((objective) => objective.completed)
-        .length;
-    final progress = quest.objectives.isEmpty
-        ? 0.0
-        : (completedObjectives / quest.objectives.length)
-              .clamp(0.0, 1.0)
-              .toDouble();
+    final progress = quest.completed ? 1.0 : 0.0;
     final type = quest.type == 'MAIN' ? 'MAIN QUEST' : 'SIDE QUEST';
 
-    return Container(
+    final card = Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: AppColors.background.withValues(alpha: 0.45),
@@ -197,7 +212,7 @@ class _QuestCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '$completedObjectives / ${quest.objectives.length} objectives',
+            quest.completed ? 'COMPLETED' : 'ACTIVE',
             style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 12,
@@ -213,22 +228,7 @@ class _QuestCard extends StatelessWidget {
                 _RewardLabel(icon: Icons.auto_awesome, text: skillName!),
             ],
           ),
-          if (quest.objectives.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            for (final objective in quest.objectives)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton(
-                  onPressed: objective.completed
-                      ? null
-                      : () => onObjectiveComplete(quest.id, objective.id),
-                  child: Text(
-                    '${objective.completed ? '✓' : '○'} ${objective.title}',
-                  ),
-                ),
-              ),
-          ],
-          if (quest.objectives.every((objective) => objective.completed))
+          if (showActions && !quest.completed)
             Align(
               alignment: Alignment.centerRight,
               child: FilledButton(
@@ -239,61 +239,14 @@ class _QuestCard extends StatelessWidget {
         ],
       ),
     );
+    return onTap == null
+        ? card
+        : InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: card,
+          );
   }
-}
-
-class _TemplateCard extends StatelessWidget {
-  const _TemplateCard({
-    required this.template,
-    required this.onActivate,
-    required this.isActivating,
-  });
-  final QuestTemplate template;
-  final Future<void> Function(String templateId) onActivate;
-  final bool isActivating;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: AppColors.background.withValues(alpha: 0.45),
-      borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: AppColors.border),
-    ),
-    child: Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                template.name,
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                '${template.questCount} quests · ${template.milestoneCount} milestones',
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-        ),
-        OutlinedButton(
-          onPressed: isActivating ? null : () => onActivate(template.id),
-          child: isActivating
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Activate'),
-        ),
-      ],
-    ),
-  );
 }
 
 class _AcquiredSkillsSection extends StatelessWidget {

@@ -89,6 +89,8 @@ test("character is persisted in one account update with server-owned progression
     assert.equal(character.level, 1);
     assert.equal(character.xp, 0);
     assert.equal(character.rank, "E");
+    assert.equal(character.title, "Shadow Initiate");
+    assert.deepEqual(character.titleHistory, ["Shadow Initiate"]);
     assert.equal(character.skillUnlockTokens, 0);
     assert.deepEqual(character.startingSkill, {
       id: "programming",

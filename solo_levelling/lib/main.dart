@@ -26,6 +26,9 @@ void main() {
     api: AuthApi(apiClient),
     tokenStorage: SecureRefreshTokenStorage(storage: secureStorage),
   );
+  apiClient.onAccessTokenExpired = authRepository.refreshAccessToken;
+  final authController = AuthController(authRepository);
+  authRepository.onAccessTokenChanged = authController.notifyAccessTokenChanged;
   final characterRepository = CharacterRepositoryImpl(
     api: CharacterApi(apiClient),
   );
@@ -37,7 +40,7 @@ void main() {
   );
   runApp(
     SoloLevelingApp(
-      authController: AuthController(authRepository),
+      authController: authController,
       characterRepository: characterRepository,
       dashboardRepository: dashboardRepository,
       progressionRepository: progressionRepository,

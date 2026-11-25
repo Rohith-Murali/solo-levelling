@@ -1,10 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { AppError } from "../errors/app-error.js";
+import { ProgressionEngine } from "../core/progression/index.js";
 import { User } from "../models/user.model.js";
 import type { CharacterRecord } from "../models/user.model.js";
-import { characterAvatars, initialProgression, startingSkills } from "./character-catalog.js";
+import { characterAvatars, startingSkills } from "./character-catalog.js";
 
 export function createCharacterService() {
+  const progressionEngine = new ProgressionEngine();
   return {
     async create(userId: string, name: string, avatarId: string, startingSkillId: string): Promise<CharacterRecord> {
       const avatar = characterAvatars.find((item) => item.id === avatarId);
@@ -14,40 +16,49 @@ export function createCharacterService() {
       }
 
       const now = new Date();
-      const character: CharacterRecord = {
-        id: randomUUID(),
-        name: name.trim(),
-        avatarId: avatar.id,
-        level: initialProgression.level,
-        xp: initialProgression.xp,
-        rank: initialProgression.rank,
-        skillUnlockTokens: initialProgression.skillUnlockTokens,
-        startingSkill: {
-          id: skill.id,
-          name: skill.name,
-          level: initialProgression.skillLevel,
-          xp: initialProgression.skillXp,
-        },
-      title: "Shadow Initiate",
-      titleHistory: ["Shadow Initiate"],
-      totalXp: initialProgression.xp,
-      version: 0,
-      skills: [{
+      const characterId = randomUUID();
+      const initialState = progressionEngine.createInitialState(characterId, {
         id: skill.id,
         name: skill.name,
         description: skill.description,
-        category: "STARTING",
-        level: initialProgression.skillLevel,
-        xp: initialProgression.skillXp,
-        totalXp: 0,
-        acquiredAt: now,
-        acquisitionSource: "CHARACTER_CREATION",
-        status: "ACTIVE",
-      }],
-      goals: [],
-      milestones: [],
-      quests: [],
-      progressionEvents: [],
+        category: skill.category,
+      }, now);
+      const initialSkill = initialState.skills[skill.id]!;
+      const character: CharacterRecord = {
+        id: characterId,
+        name: name.trim(),
+        avatarId: avatar.id,
+        level: initialState.level,
+        xp: initialState.xp,
+        rank: initialState.rank,
+        skillUnlockTokens: initialState.skillUnlockTokens,
+        startingSkill: {
+          id: skill.id,
+          name: skill.name,
+          level: initialSkill.level,
+          xp: initialSkill.xp,
+        },
+        stats: { strength: 1, intelligence: 1, vitality: 1, discipline: 1, perception: 1 },
+        title: initialState.title,
+        titleHistory: [...initialState.titleHistory],
+        totalXp: initialState.totalXp,
+        version: 0,
+        skills: [{
+          id: initialSkill.id,
+          name: initialSkill.name,
+          description: initialSkill.description ?? "",
+          category: initialSkill.category ?? "STARTING",
+          level: initialSkill.level,
+          xp: initialSkill.xp,
+          totalXp: initialSkill.totalXp,
+          acquiredAt: initialSkill.acquiredAt,
+          acquisitionSource: initialSkill.acquisitionSource,
+          status: initialSkill.status,
+        }],
+        goals: [],
+        milestones: [],
+        quests: [],
+        progressionEvents: [],
         createdAt: now,
         updatedAt: now,
       };

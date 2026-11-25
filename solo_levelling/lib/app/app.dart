@@ -63,7 +63,7 @@ class _SoloLevelingAppState extends State<SoloLevelingApp> {
             }
             return MainShell(
               repository: widget.dashboardRepository,
-              accessToken: widget.authController.accessToken,
+              accessTokenProvider: () => widget.authController.accessToken,
               onLogout: widget.authController.logout,
               onCharacterRequired: widget.authController.markCharacterMissing,
               progressionRepository: widget.progressionRepository,

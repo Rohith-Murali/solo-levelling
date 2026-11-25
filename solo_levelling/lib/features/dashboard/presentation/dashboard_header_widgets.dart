@@ -177,6 +177,13 @@ class _CharacterStatusPanel extends StatelessWidget {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
+                        Text(
+                          character.title,
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -220,7 +227,16 @@ class _CharacterStatusPanel extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 6),
+          Text(
+            '${(character.xpToNextLevel - character.currentLevelXp).clamp(0, character.xpToNextLevel)} XP TO NEXT LEVEL',
+            textAlign: TextAlign.right,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 11,
+            ),
+          ),
+          const SizedBox(height: 14),
           Row(
             children: [
               Expanded(

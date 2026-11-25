@@ -7,47 +7,8 @@ import 'package:solo_levelling/core/network/api_client.dart';
 import 'package:solo_levelling/features/progression/data/progression_api.dart';
 
 void main() {
-  test('loads templates and sends authenticated activation requests', () async {
-    final mockClient = MockClient((request) async {
-      expect(request.headers['authorization'], 'Bearer token');
-      if (request.method == 'GET') {
-        expect(request.url.path, '/api/quests/templates');
-        return http.Response(
-          jsonEncode({
-            'data': {
-              'templates': [
-                {
-                  'id': 'body',
-                  'name': 'Body',
-                  'description': 'Build strength.',
-                  'minimumLevel': 1,
-                  'milestoneCount': 3,
-                  'questCount': 9,
-                },
-              ],
-            },
-          }),
-          200,
-        );
-      }
-      expect(request.method, 'POST');
-      expect(request.url.path, '/api/quests/templates/body/activate');
-      return http.Response(jsonEncode({'data': {}}), 201);
-    });
-    final api = ProgressionApi(
-      ApiClient(
-        baseUri: Uri.parse('http://localhost:3000/api/'),
-        client: mockClient,
-      ),
-    );
-
-    expect((await api.getTemplates('token')).single.name, 'Body');
-    await api.activateTemplate('token', 'body');
-    mockClient.close();
-  });
-
   test(
-    'parses quests and completes objectives through the progression API',
+    'parses quests and completes quests through the progression API',
     () async {
       final mockClient = MockClient((request) async {
         expect(request.headers['authorization'], 'Bearer token');
@@ -63,14 +24,6 @@ void main() {
                     'type': 'MAIN',
                     'difficulty': 'EASY',
                     'primarySkillId': 'focus',
-                    'sourceTemplateId': 'mind',
-                    'objectives': [
-                      {
-                        'id': 'objective-1',
-                        'title': 'Start',
-                        'completed': false,
-                      },
-                    ],
                     'completed': false,
                   },
                 ],
@@ -79,10 +32,7 @@ void main() {
             200,
           );
         }
-        expect(
-          request.url.path,
-          '/api/quests/quest-1/objectives/objective-1/complete',
-        );
+        expect(request.url.path, '/api/quests/quest-1/complete');
         return http.Response(jsonEncode({'data': {}}), 200);
       });
       final api = ProgressionApi(
@@ -92,10 +42,8 @@ void main() {
         ),
       );
 
-      final quests = await api.getQuests('token');
-      expect(quests.single.objectives.single.title, 'Start');
-      expect(quests.single.sourceTemplateId, 'mind');
-      await api.completeObjective('token', 'quest-1', 'objective-1');
+      await api.getQuests('token');
+      await api.completeQuest('token', 'quest-1');
       mockClient.close();
     },
   );

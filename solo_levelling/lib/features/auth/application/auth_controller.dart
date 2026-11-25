@@ -30,6 +30,20 @@ class AuthController extends ChangeNotifier {
   AuthState get state => _state;
   String? get accessToken => _repository.accessToken;
 
+  void notifyAccessTokenChanged() {
+    if (_repository.accessToken == null &&
+        _state.status == AuthStatus.signedIn) {
+      _setState(
+        const AuthState(
+          status: AuthStatus.signedOut,
+          errorMessage: 'Your session expired. Please sign in again.',
+        ),
+      );
+      return;
+    }
+    notifyListeners();
+  }
+
   Future<void> restoreSession() async {
     try {
       final user = await _repository.restoreSession();

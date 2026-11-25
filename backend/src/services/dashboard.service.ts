@@ -1,4 +1,8 @@
 import { AppError } from "../errors/app-error.js";
+import { defaultProgressionConfig } from "../core/progression/config.js";
+import type { XpTransaction } from "../core/progression/models.js";
+import { xpForLevel } from "../core/progression/resolvers.js";
+import { resolveTitle } from "../core/progression/resolvers.js";
 import { User } from "../models/user.model.js";
 import type { CharacterRecord, ProgressionEventRecord } from "../models/user.model.js";
 import { characterAvatars } from "./character-catalog.js";
@@ -17,15 +21,41 @@ const progressionEventTitles: Record<string, string> = {
   GOAL_COMPLETED: "Goal completed",
 };
 
-function getLevelProgress(level: number, totalXp: number) {
-  const completedLevels = level - 1;
-  const xpAtLevelStart =
-    completedLevels * 100 + 25 * completedLevels * (completedLevels - 1);
-
+function getLevelProgress(level: number, currentLevelXp: number) {
   return {
-    currentLevelXp: Math.max(0, totalXp - xpAtLevelStart),
-    xpToNextLevel: 100 + 50 * completedLevels,
+    currentLevelXp,
+    xpToNextLevel: xpForLevel(level, defaultProgressionConfig),
   };
+}
+
+function isXpTransaction(value: unknown): value is XpTransaction {
+  if (typeof value !== "object" || value === null) return false;
+  const transaction = value as Record<string, unknown>;
+  return (
+    (transaction.sourceType === "QUEST" ||
+      transaction.sourceType === "MILESTONE" ||
+      transaction.sourceType === "GOAL") &&
+    typeof transaction.sourceId === "string" &&
+    (transaction.rewardType === "CHARACTER_XP" ||
+      transaction.rewardType === "SKILL_XP") &&
+    (transaction.skillId === null || typeof transaction.skillId === "string") &&
+    typeof transaction.amount === "number" &&
+    typeof transaction.characterLevelAtAward === "number"
+  );
+}
+
+function xpTransactions(character: CharacterRecord) {
+  return (character.progressionEvents ?? [])
+    .flatMap((event) => {
+      const transaction = event.metadata?.xpTransaction;
+      if (!isXpTransaction(transaction)) return [];
+      return [{
+        id: event.id,
+        ...transaction,
+        createdAt: event.occurredAt.toISOString(),
+      }];
+    })
+    .sort((first, second) => second.createdAt.localeCompare(first.createdAt));
 }
 
 function progressionActivity(
@@ -61,6 +91,7 @@ function progressionActivity(
   return {
     id: event.id,
     type: event.type,
+    relatedEntityId: event.relatedEntityId ?? null,
     title: progressionEventTitles[event.type] ?? "Progression update",
     description,
     createdAt: event.occurredAt.toISOString(),
@@ -104,7 +135,7 @@ function progressionOverview(character: CharacterRecord, now = new Date()) {
 
 function toDashboard(character: CharacterRecord) {
   const totalXp = character.totalXp ?? character.xp;
-  const characterProgress = getLevelProgress(character.level, totalXp);
+  const characterProgress = getLevelProgress(character.level, character.xp);
   const avatar = characterAvatars.find(
     (item) => item.id === character.avatarId,
   );
@@ -116,10 +147,12 @@ function toDashboard(character: CharacterRecord) {
       avatarId: character.avatarId,
       avatarImagePath: avatar?.imagePath ?? null,
       rank: character.rank,
+      title: character.title ?? resolveTitle(character.level),
       level: character.level,
       totalXp,
       ...characterProgress,
       skillUnlockTokens: character.skillUnlockTokens,
+      stats: character.stats ?? { strength: 1, intelligence: 1, vitality: 1, discipline: 1, perception: 1 },
     },
     statistics: {
       completedQuestCount: character.quests?.filter((quest) => quest.completed).length ?? 0,
@@ -130,12 +163,21 @@ function toDashboard(character: CharacterRecord) {
       completedMilestoneCount: character.milestones?.filter((milestone) => milestone.completed).length ?? 0,
     },
     activeQuests: [],
+    titleTiers: defaultProgressionConfig.titles.map((title, index, titles) => ({
+      name: title.name,
+      minimumLevel: title.minimumLevel,
+      maximumLevel: titles[index + 1]?.minimumLevel
+        ? titles[index + 1]!.minimumLevel - 1
+        : null,
+    })),
+    xpTransactions: xpTransactions(character),
     skills: (character.skills?.length ? character.skills : [character.startingSkill]).map((skill) => ({
       id: skill.id,
       name: skill.name,
       level: skill.level,
       currentLevelXp: skill.xp,
-      xpToNextLevel: 100 + 50 * (skill.level - 1),
+      totalXp: "totalXp" in skill ? skill.totalXp : skill.xp,
+      xpToNextLevel: xpForLevel(skill.level, defaultProgressionConfig),
     })),
     progressionOverview: progressionOverview(character),
     recentActivity: (character.progressionEvents ?? [])
