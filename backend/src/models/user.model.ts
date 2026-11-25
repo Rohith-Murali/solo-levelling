@@ -83,7 +83,6 @@ export interface CharacterRecord {
   avatarId: string;
   level: number;
   xp: number;
-  rank: string;
   skillUnlockTokens: number;
   startingSkill: StartingSkillRecord;
   stats: CharacterStats;
@@ -185,7 +184,6 @@ const characterSchema = new Schema<CharacterRecord>(
     avatarId: { type: String, required: true },
     level: { type: Number, required: true },
     xp: { type: Number, required: true },
-    rank: { type: String, required: true },
     skillUnlockTokens: { type: Number, required: true },
     startingSkill: { type: startingSkillSchema, required: true },
     stats: {

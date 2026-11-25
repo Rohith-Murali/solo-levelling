@@ -23,7 +23,6 @@ void main() {
                 'name': 'Hunter',
                 'avatarId': 'avatar-01',
                 'avatarImagePath': 'avatars/Avatar 1.png',
-                'rank': 'E',
                 'title': 'Shadow Initiate',
                 'level': 1,
                 'totalXp': 0,

@@ -29,7 +29,7 @@ function progressionState(character: CharacterRecord): ProgressionState {
   const plainCharacter = toPlainCharacterRecord(character);
   return {
     characterId: plainCharacter.id, level: plainCharacter.level, xp: plainCharacter.xp, totalXp: plainCharacter.totalXp ?? plainCharacter.xp,
-    rank: plainCharacter.rank, title: plainCharacter.title ?? resolveTitle(plainCharacter.level), titleHistory: plainCharacter.titleHistory ?? [resolveTitle(plainCharacter.level)],
+    title: plainCharacter.title ?? resolveTitle(plainCharacter.level), titleHistory: plainCharacter.titleHistory ?? [resolveTitle(plainCharacter.level)],
     skillUnlockTokens: plainCharacter.skillUnlockTokens, skills: skillState(plainCharacter),
     completedQuestIds: new Set((plainCharacter.quests ?? []).filter((quest) => quest.completed).map((quest) => quest.id)),
   };
@@ -151,7 +151,6 @@ function progressionCharacterFields(character: CharacterRecord, state: Progressi
     level: state.level,
     xp: state.xp,
     totalXp: state.totalXp,
-    rank: state.rank,
     title: state.title,
     titleHistory: [...state.titleHistory],
     skillUnlockTokens: state.skillUnlockTokens,

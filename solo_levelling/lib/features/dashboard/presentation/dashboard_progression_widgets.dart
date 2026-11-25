@@ -455,7 +455,6 @@ IconData _activityIcon(String type) {
   return switch (type) {
     'QUEST_COMPLETED' => Icons.task_alt,
     'CHARACTER_LEVEL_UP' => Icons.trending_up,
-    'RANK_PROMOTED' => Icons.military_tech,
     'MILESTONE_COMPLETED' => Icons.emoji_events_outlined,
     _ => Icons.bolt,
   };

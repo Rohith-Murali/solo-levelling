@@ -1,12 +1,6 @@
 import { defaultProgressionConfig, type ProgressionConfig } from "./config.js";
 import type { QuestDifficulty } from "./models.js";
 
-export function resolveRank(level: number, config: ProgressionConfig): string {
-  const rank = [...config.ranks].reverse().find((candidate) => candidate.minimumLevel <= level);
-  if (!rank) throw new Error(`No rank configured for level ${level}.`);
-  return rank.name;
-}
-
 export function resolveTitle(level: number, config: ProgressionConfig = defaultProgressionConfig): string {
   const title = [...config.titles].reverse().find((candidate) => candidate.minimumLevel <= level);
   if (!title) throw new Error(`No title configured for level ${level}.`);

@@ -30,7 +30,6 @@ export function createCharacterService() {
         avatarId: avatar.id,
         level: initialState.level,
         xp: initialState.xp,
-        rank: initialState.rank,
         skillUnlockTokens: initialState.skillUnlockTokens,
         startingSkill: {
           id: skill.id,

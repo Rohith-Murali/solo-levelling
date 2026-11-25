@@ -2,7 +2,6 @@ export type ProgressionEventType =
   | "QUEST_COMPLETED"
   | "CHARACTER_XP_GAINED"
   | "CHARACTER_LEVEL_INCREASED"
-  | "RANK_PROMOTED"
   | "TITLE_UNLOCKED"
   | "SKILL_XP_GAINED"
   | "SKILL_LEVEL_INCREASED"
@@ -22,12 +21,6 @@ export interface XpTransaction {
   readonly skillId: string | null;
   readonly amount: number;
   readonly characterLevelAtAward: number;
-}
-
-export interface RankDefinition {
-  readonly name: string;
-  readonly minimumLevel: number;
-  readonly maximumLevel?: number;
 }
 
 export interface TitleDefinition {
@@ -63,7 +56,6 @@ export interface ProgressionState {
   /** XP held at the current level, after carryover. */
   readonly xp: number;
   readonly totalXp: number;
-  readonly rank: string;
   readonly title: string;
   readonly titleHistory: readonly string[];
   readonly skillUnlockTokens: number;
@@ -99,8 +91,6 @@ export interface ProgressionResult {
   readonly previousCharacterLevel: number;
   readonly currentCharacterLevel: number;
   readonly characterLevelUps: readonly number[];
-  readonly previousRank: string;
-  readonly currentRank: string;
   readonly previousTitle: string;
   readonly currentTitle: string;
   readonly newlyUnlockedTitles: readonly string[];

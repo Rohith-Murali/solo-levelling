@@ -54,7 +54,13 @@ class SystemDrawer extends StatelessWidget {
                     Text(
                       data == null
                           ? 'Synchronizing status'
-                          : 'LV.${data.level} · ${data.rank}-RANK',
+                          : 'LV.${data.level}',
+                      style: const TextStyle(color: AppColors.textSecondary),
+                    ),
+                    Text(
+                      data == null
+                          ? 'Synchronizing status'
+                          : data.title,
                       style: const TextStyle(color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 14),

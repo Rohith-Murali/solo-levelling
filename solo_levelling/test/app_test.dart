@@ -152,7 +152,6 @@ void main() {
 
     expect(find.text('Review your character'), findsOneWidget);
     expect(find.text('Sung'), findsOneWidget);
-    expect(find.text('E'), findsOneWidget);
 
     final createButton = find.text('Create Character');
     await tester.ensureVisible(createButton);
@@ -311,7 +310,6 @@ class _FakeCharacterRepository implements CharacterRepository {
       initialProgression: InitialProgression(
         level: 1,
         xp: 0,
-        rank: 'E',
         skillUnlockTokens: 0,
         skillLevel: 1,
         skillXp: 0,
@@ -341,7 +339,6 @@ class _FakeDashboardRepository implements DashboardRepository {
         name: 'Hunter',
         avatarId: 'avatar-01',
         avatarImagePath: 'avatars/Avatar 1.png',
-        rank: 'E',
         title: 'Shadow Initiate',
         level: 1,
         totalXp: 0,

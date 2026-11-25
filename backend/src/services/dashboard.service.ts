@@ -11,7 +11,6 @@ const progressionEventTitles: Record<string, string> = {
   QUEST_COMPLETED: "Quest completed",
   CHARACTER_XP_GAINED: "Character XP gained",
   CHARACTER_LEVEL_INCREASED: "Level increased",
-  RANK_PROMOTED: "Rank promoted",
   TITLE_UNLOCKED: "Title unlocked",
   SKILL_ACQUIRED: "Skill acquired",
   SKILL_XP_GAINED: "Skill XP gained",
@@ -80,9 +79,7 @@ function progressionActivity(
         ? `${gainedXp ?? 0} character XP earned.`
         : event.type === "SKILL_XP_GAINED"
           ? `${skill?.name ?? "A skill"} gained ${gainedXp ?? 0} XP.`
-          : event.type === "RANK_PROMOTED"
-            ? `Rank changed to ${String(event.newValue ?? "a new rank")}.`
-            : event.type === "TITLE_UNLOCKED"
+          : event.type === "TITLE_UNLOCKED"
               ? `Unlocked ${String(event.newValue ?? "a new title")}.`
               : event.type === "SKILL_ACQUIRED"
                 ? `${String((event.newValue as { name?: string } | undefined)?.name ?? "A new skill")} is now available.`
@@ -146,7 +143,6 @@ function toDashboard(character: CharacterRecord) {
       name: character.name,
       avatarId: character.avatarId,
       avatarImagePath: avatar?.imagePath ?? null,
-      rank: character.rank,
       title: character.title ?? resolveTitle(character.level),
       level: character.level,
       totalXp,

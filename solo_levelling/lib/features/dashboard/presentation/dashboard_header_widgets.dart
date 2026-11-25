@@ -80,12 +80,10 @@ class _AnimatedSection extends StatelessWidget {
 class _CharacterStatusPanel extends StatelessWidget {
   const _CharacterStatusPanel({
     required this.character,
-    required this.onRankTap,
     required this.onTokensTap,
   });
 
   final DashboardCharacter character;
-  final VoidCallback onRankTap;
   final VoidCallback onTokensTap;
 
   @override
@@ -147,29 +145,6 @@ class _CharacterStatusPanel extends StatelessWidget {
                       spacing: 8,
                       runSpacing: 6,
                       children: [
-                        InkWell(
-                          onTap: onRankTap,
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: AppColors.accent),
-                            ),
-                            child: Text(
-                              '${character.rank} RANK',
-                              style: const TextStyle(
-                                color: AppColors.accent,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.8,
-                              ),
-                            ),
-                          ),
-                        ),
                         Text(
                           'LEVEL ${character.level}',
                           style: const TextStyle(

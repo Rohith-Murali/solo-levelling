@@ -154,7 +154,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 _AnimatedSection(
                   child: _CharacterStatusPanel(
                     character: data.character,
-                    onRankTap: () => _showRankDetails(context, data.character),
                     onTokensTap: () =>
                         _showTokenDetails(context, data.character),
                   ),
@@ -186,27 +185,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
-
-  void _showRankDetails(BuildContext context, DashboardCharacter character) {
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: Text('${character.rank} Rank'),
-        content: Text(
-          'Rank is assigned by the system based on character progression. '
-          'Your current rank is ${character.rank}.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showTokenDetails(BuildContext context, DashboardCharacter character) {
     final repository = widget.progressionRepository;
     final token = widget.accessToken;

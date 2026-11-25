@@ -52,7 +52,6 @@ class InitialProgression {
   const InitialProgression({
     required this.level,
     required this.xp,
-    required this.rank,
     required this.skillUnlockTokens,
     required this.skillLevel,
     required this.skillXp,
@@ -60,7 +59,6 @@ class InitialProgression {
 
   final int level;
   final int xp;
-  final String rank;
   final int skillUnlockTokens;
   final int skillLevel;
   final int skillXp;
@@ -68,13 +66,11 @@ class InitialProgression {
   factory InitialProgression.fromJson(Map<String, dynamic> json) {
     final level = json['level'];
     final xp = json['xp'];
-    final rank = json['rank'];
     final skillUnlockTokens = json['skillUnlockTokens'];
     final skillLevel = json['skillLevel'];
     final skillXp = json['skillXp'];
     if (level is! int ||
         xp is! int ||
-        rank is! String ||
         skillUnlockTokens is! int ||
         skillLevel is! int ||
         skillXp is! int) {
@@ -86,7 +82,6 @@ class InitialProgression {
     return InitialProgression(
       level: level,
       xp: xp,
-      rank: rank,
       skillUnlockTokens: skillUnlockTokens,
       skillLevel: skillLevel,
       skillXp: skillXp,

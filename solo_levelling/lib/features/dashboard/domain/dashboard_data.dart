@@ -6,7 +6,6 @@ class DashboardCharacter {
     required this.name,
     required this.avatarId,
     required this.avatarImagePath,
-    required this.rank,
     required this.title,
     required this.level,
     required this.totalXp,
@@ -20,7 +19,6 @@ class DashboardCharacter {
   final String name;
   final String avatarId;
   final String? avatarImagePath;
-  final String rank;
   final String title;
   final int level;
   final int totalXp;
@@ -34,7 +32,6 @@ class DashboardCharacter {
     final name = json['name'];
     final avatarId = json['avatarId'];
     final avatarImagePath = json['avatarImagePath'];
-    final rank = json['rank'];
     final title = json['title'];
     final level = json['level'];
     final totalXp = json['totalXp'];
@@ -46,7 +43,6 @@ class DashboardCharacter {
         name is! String ||
         avatarId is! String ||
         (avatarImagePath != null && avatarImagePath is! String) ||
-        rank is! String ||
         title is! String ||
         level is! int ||
         totalXp is! int ||
@@ -61,7 +57,6 @@ class DashboardCharacter {
       name: name,
       avatarId: avatarId,
       avatarImagePath: avatarImagePath as String?,
-      rank: rank,
       title: title,
       level: level,
       totalXp: totalXp,

@@ -33,7 +33,6 @@ test("character options require authentication and return supported choices", as
   assert.deepEqual(response.body.data.initialProgression, {
     level: 1,
     xp: 0,
-    rank: "E",
     skillUnlockTokens: 0,
     skillLevel: 1,
     skillXp: 0,
@@ -88,7 +87,6 @@ test("character is persisted in one account update with server-owned progression
     assert.equal(character.name, "Hunter");
     assert.equal(character.level, 1);
     assert.equal(character.xp, 0);
-    assert.equal(character.rank, "E");
     assert.equal(character.title, "Shadow Initiate");
     assert.deepEqual(character.titleHistory, ["Shadow Initiate"]);
     assert.equal(character.skillUnlockTokens, 0);

@@ -26,7 +26,7 @@ export function createSkillService() {
       const skill = catalogSkill ?? { id: `custom-${randomUUID()}`, name: input.name!, description: input.description!, category: input.category! };
       const state: ProgressionState = {
         characterId: character.id, level: character.level, xp: character.xp, totalXp: character.totalXp ?? character.xp,
-        rank: character.rank, title: character.title ?? resolveTitle(character.level), titleHistory: character.titleHistory ?? [resolveTitle(character.level)], skillUnlockTokens: character.skillUnlockTokens,
+        title: character.title ?? resolveTitle(character.level), titleHistory: character.titleHistory ?? [resolveTitle(character.level)], skillUnlockTokens: character.skillUnlockTokens,
         skills: Object.fromEntries((character.skills?.length ? character.skills : [{ ...character.startingSkill, description: "Starting skill", category: "STARTING", totalXp: character.startingSkill.xp, acquiredAt: character.createdAt, acquisitionSource: "CHARACTER_CREATION", status: "ACTIVE" as const }]).map((item) => [item.id, item])), completedQuestIds: new Set((character.quests ?? []).filter((quest) => quest.completed).map((quest) => quest.id)),
       };
       if (state.skills[skill.id]) {

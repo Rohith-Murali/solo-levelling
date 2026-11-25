@@ -47,7 +47,6 @@ class CharacterApi {
         character['avatarId'] is! String ||
         character['level'] is! int ||
         character['xp'] is! int ||
-        character['rank'] is! String ||
         character['skillUnlockTokens'] is! int ||
         startingSkill['id'] is! String ||
         startingSkill['name'] is! String ||

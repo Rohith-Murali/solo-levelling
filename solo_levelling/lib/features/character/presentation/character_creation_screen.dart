@@ -390,7 +390,6 @@ class _CharacterCreationScreenState extends State<CharacterCreationScreen> {
               ?.copyWith(color: AppColors.accent, letterSpacing: 1),
         ),
         const SizedBox(height: 10),
-        _ReviewRow(label: 'Character rank', value: progression.rank),
         _ReviewRow(label: 'Character level', value: '${progression.level}'),
         _ReviewRow(label: 'Character XP', value: '${progression.xp}'),
         _ReviewRow(label: 'Skill level', value: '${progression.skillLevel}'),

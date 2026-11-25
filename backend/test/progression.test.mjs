@@ -17,7 +17,6 @@ function createCharacterRecord(overrides = {}) {
     level: 1,
     xp: 0,
     totalXp: 0,
-    rank: "E",
     title: "Shadow Initiate",
     titleHistory: ["Shadow Initiate"],
     skillUnlockTokens: 0,
@@ -58,21 +57,19 @@ test("progresses character XP with carryover and independent skill XP", () => {
   assert.equal(result.state.totalXp, 160);
   assert.equal(result.state.skills.focus.xp, 80);
   assert.equal(result.state.skills.focus.totalXp, 80);
-  assert.equal(result.state.rank, "E");
   assert.equal(result.state.title, "Shadow Initiate");
   assert.equal(result.events.find((event) => event.type === "CHARACTER_XP_GAINED").metadata.xpTransaction.characterLevelAtAward, 1);
   assert.equal(result.events.find((event) => event.type === "SKILL_XP_GAINED").metadata.xpTransaction.amount, 80);
   assert.ok(result.events.some((event) => event.type === "SKILL_XP_GAINED"));
 });
 
-test("supports multiple levels, rank/title promotion, and calculated unlock tokens", () => {
+test("supports multiple levels, title promotion, and calculated unlock tokens", () => {
   const engine = new ProgressionEngine();
   const initial = engine.createInitialState("character-1", skill);
-  const result = engine.awardXp({ ...initial, level: 4, xp: 0, totalXp: 450, rank: "E", title: "Shadow Initiate" }, 2800, "quest-1");
+  const result = engine.awardXp({ ...initial, level: 4, xp: 0, totalXp: 450, title: "Shadow Initiate" }, 2800, "quest-1");
 
   assert.equal(result.state.level, 11);
   assert.equal(result.state.xp, 0);
-  assert.equal(result.state.rank, "C");
   assert.equal(result.state.title, "Veil Walker");
   assert.equal(result.newlyEarnedUnlockTokens, 2);
   assert.deepEqual(result.characterLevelUps, [5, 6, 7, 8, 9, 10, 11]);
@@ -116,7 +113,7 @@ test("duplicate completion is idempotent", () => {
   assert.equal(duplicate.state.totalXp, first.state.totalXp);
 });
 
-test("configuration changes formulas and title/rank definitions without engine changes", () => {
+test("configuration changes formulas and title definitions without engine changes", () => {
   const config = {
     ...defaultProgressionConfig,
     skillXpMultiplier: 0.6,

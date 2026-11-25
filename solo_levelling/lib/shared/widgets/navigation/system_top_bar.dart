@@ -45,7 +45,7 @@ class SystemTopBar extends StatelessWidget implements PreferredSizeWidget {
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                   Text(
-                    'LV.${data.level} · ${data.rank}-RANK',
+                    'LV.${data.level} - ${data.title}',
                     style: const TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 12,

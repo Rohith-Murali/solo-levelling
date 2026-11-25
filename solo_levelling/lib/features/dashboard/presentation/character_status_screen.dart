@@ -143,7 +143,7 @@ class _CharacterStatusScreenState extends State<CharacterStatusScreen> {
                               style: Theme.of(context).textTheme.titleLarge,
                             ),
                             Text(
-                              'LV ${character.level} · ${character.rank} RANK',
+                              'LV ${character.level}',
                               style: const TextStyle(
                                 color: AppColors.textSecondary,
                               ),

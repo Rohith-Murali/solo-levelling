@@ -25,7 +25,6 @@ const initialSkill = initialState.skills["initial-skill"]!;
 export const initialProgression = {
   level: initialState.level,
   xp: initialState.xp,
-  rank: initialState.rank,
   skillUnlockTokens: initialState.skillUnlockTokens,
   skillLevel: initialSkill.level,
   skillXp: initialSkill.xp,

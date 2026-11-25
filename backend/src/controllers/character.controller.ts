@@ -33,7 +33,6 @@ export function createCharacterController(characterService: CharacterService) {
             avatarId: character.avatarId,
             level: character.level,
             xp: character.xp,
-            rank: character.rank,
             skillUnlockTokens: character.skillUnlockTokens,
           },
           startingSkill: {
