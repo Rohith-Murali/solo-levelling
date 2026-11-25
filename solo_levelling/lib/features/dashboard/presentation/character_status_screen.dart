@@ -148,6 +148,10 @@ class _CharacterStatusScreenState extends State<CharacterStatusScreen> {
                                 color: AppColors.textSecondary,
                               ),
                             ),
+                            Text(
+                              character.title,
+                              style: const TextStyle(color: AppColors.accent),
+                            ),
                           ],
                         ),
                       ),

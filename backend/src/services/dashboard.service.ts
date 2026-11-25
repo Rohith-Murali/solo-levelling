@@ -1,4 +1,5 @@
 import { AppError } from "../errors/app-error.js";
+import { resolveTitle } from "../core/progression/resolvers.js";
 import { User } from "../models/user.model.js";
 import type { CharacterRecord, ProgressionEventRecord } from "../models/user.model.js";
 import { characterAvatars } from "./character-catalog.js";
@@ -117,6 +118,7 @@ function toDashboard(character: CharacterRecord) {
       avatarId: character.avatarId,
       avatarImagePath: avatar?.imagePath ?? null,
       rank: character.rank,
+      title: character.title ?? resolveTitle(character.level),
       level: character.level,
       totalXp,
       ...characterProgress,

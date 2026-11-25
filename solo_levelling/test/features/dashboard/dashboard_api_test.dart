@@ -24,6 +24,7 @@ void main() {
                 'avatarId': 'avatar-01',
                 'avatarImagePath': 'avatars/Avatar 1.png',
                 'rank': 'E',
+                'title': 'Shadow Initiate',
                 'level': 1,
                 'totalXp': 0,
                 'currentLevelXp': 0,
@@ -72,6 +73,7 @@ void main() {
       final dashboard = await api.getDashboard('access-token');
 
       expect(dashboard.character.name, 'Hunter');
+      expect(dashboard.character.title, 'Shadow Initiate');
       expect(dashboard.character.currentLevelXp, 0);
       expect(dashboard.skills.single.name, 'Focus');
       expect(dashboard.progressionOverview.characterXpEarned, isNull);

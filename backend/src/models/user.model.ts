@@ -1,4 +1,8 @@
 import { model, Schema } from "mongoose";
+import { defaultProgressionConfig } from "../core/progression/config.js";
+import { resolveTitle } from "../core/progression/resolvers.js";
+
+const initialTitle = resolveTitle(defaultProgressionConfig.initialLevel);
 
 export interface StartingSkillRecord {
   id: string;
@@ -193,8 +197,8 @@ const characterSchema = new Schema<CharacterRecord>(
       required: true,
       default: { strength: 1, intelligence: 1, vitality: 1, discipline: 1, perception: 1 },
     },
-    title: { type: String, required: true, default: "Shadow Initiate" },
-    titleHistory: { type: [String], required: true, default: ["Shadow Initiate"] },
+    title: { type: String, required: true, default: initialTitle },
+    titleHistory: { type: [String], required: true, default: [initialTitle] },
     totalXp: { type: Number, required: true, default: 0 },
     version: { type: Number, required: true, default: 0 },
     skills: { type: [skillSchema], required: true, default: [] },

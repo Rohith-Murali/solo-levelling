@@ -204,6 +204,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('PLAYER STATUS'), findsOneWidget);
+    expect(find.text('Shadow Initiate'), findsOneWidget);
     expect(find.text('Hunter'), findsNWidgets(2));
     expect(find.text('CHARACTER INITIALIZATION'), findsNothing);
     expect(tester.takeException(), isNull);
@@ -341,6 +342,7 @@ class _FakeDashboardRepository implements DashboardRepository {
         avatarId: 'avatar-01',
         avatarImagePath: 'avatars/Avatar 1.png',
         rank: 'E',
+        title: 'Shadow Initiate',
         level: 1,
         totalXp: 0,
         currentLevelXp: 0,

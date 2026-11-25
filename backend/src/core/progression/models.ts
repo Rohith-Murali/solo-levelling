@@ -19,7 +19,7 @@ export interface RankDefinition {
 
 export interface TitleDefinition {
   readonly name: string;
-  readonly rank: string;
+  readonly minimumLevel: number;
   readonly display?: Readonly<Record<string, string>>;
 }
 

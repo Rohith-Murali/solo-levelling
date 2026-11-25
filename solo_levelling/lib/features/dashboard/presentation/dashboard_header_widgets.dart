@@ -177,6 +177,13 @@ class _CharacterStatusPanel extends StatelessWidget {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
+                        Text(
+                          character.title,
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ],
                     ),
                   ],

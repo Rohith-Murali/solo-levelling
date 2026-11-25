@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { AppError } from "../errors/app-error.js";
 import { ProgressionEngine, type ProgressionEvent, type ProgressionState } from "../core/progression/index.js";
+import { resolveTitle } from "../core/progression/resolvers.js";
 import { User } from "../models/user.model.js";
 import type { CharacterRecord, CharacterStats, GoalRecord, MilestoneRecord, QuestRecord, SkillRecord } from "../models/user.model.js";
 import { toPlainCharacterRecord } from "./character-record.js";
@@ -28,7 +29,7 @@ function progressionState(character: CharacterRecord): ProgressionState {
   const plainCharacter = toPlainCharacterRecord(character);
   return {
     characterId: plainCharacter.id, level: plainCharacter.level, xp: plainCharacter.xp, totalXp: plainCharacter.totalXp ?? plainCharacter.xp,
-    rank: plainCharacter.rank, title: plainCharacter.title ?? "Shadow Initiate", titleHistory: plainCharacter.titleHistory ?? ["Shadow Initiate"],
+    rank: plainCharacter.rank, title: plainCharacter.title ?? resolveTitle(plainCharacter.level), titleHistory: plainCharacter.titleHistory ?? [resolveTitle(plainCharacter.level)],
     skillUnlockTokens: plainCharacter.skillUnlockTokens, skills: skillState(plainCharacter),
     completedQuestIds: new Set((plainCharacter.quests ?? []).filter((quest) => quest.completed).map((quest) => quest.id)),
   };

@@ -1,3 +1,5 @@
+import { ProgressionEngine } from "../core/progression/index.js";
+
 export const characterAvatars = [
   { id: "avatar-01", name: "Avatar 1", imagePath: "avatars/Avatar 1.png" },
   { id: "avatar-02", name: "Avatar 2", imagePath: "avatars/Avatar 2.png" },
@@ -14,11 +16,17 @@ export const startingSkills = [
   { id: "financial-management", name: "Financial Management", description: "Develop practical habits for managing money.", category: "PERSONAL" },
 ] as const;
 
+const initialState = new ProgressionEngine().createInitialState("character-options", {
+  id: "initial-skill",
+  name: "Initial skill",
+});
+const initialSkill = initialState.skills["initial-skill"]!;
+
 export const initialProgression = {
-  level: 1,
-  xp: 0,
-  rank: "E",
-  skillUnlockTokens: 0,
-  skillLevel: 1,
-  skillXp: 0,
-} as const;
+  level: initialState.level,
+  xp: initialState.xp,
+  rank: initialState.rank,
+  skillUnlockTokens: initialState.skillUnlockTokens,
+  skillLevel: initialSkill.level,
+  skillXp: initialSkill.xp,
+};

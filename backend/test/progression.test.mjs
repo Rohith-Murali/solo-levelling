@@ -66,15 +66,41 @@ test("progresses character XP with carryover and independent skill XP", () => {
 test("supports multiple levels, rank/title promotion, and calculated unlock tokens", () => {
   const engine = new ProgressionEngine();
   const initial = engine.createInitialState("character-1", skill);
-  const result = engine.awardXp({ ...initial, level: 4, xp: 0, totalXp: 450, rank: "E", title: "Shadow Initiate" }, 700, "quest-1");
+  const result = engine.awardXp({ ...initial, level: 4, xp: 0, totalXp: 450, rank: "E", title: "Shadow Initiate" }, 2800, "quest-1");
 
-  assert.equal(result.state.level, 6);
-  assert.equal(result.state.xp, 150);
-  assert.equal(result.state.rank, "D");
-  assert.equal(result.state.title, "Shadow Walker");
-  assert.equal(result.newlyEarnedUnlockTokens, 1);
-  assert.deepEqual(result.characterLevelUps, [5, 6]);
-  assert.deepEqual(result.newlyUnlockedTitles, ["Shadow Walker"]);
+  assert.equal(result.state.level, 11);
+  assert.equal(result.state.xp, 0);
+  assert.equal(result.state.rank, "C");
+  assert.equal(result.state.title, "Veil Walker");
+  assert.equal(result.newlyEarnedUnlockTokens, 2);
+  assert.deepEqual(result.characterLevelUps, [5, 6, 7, 8, 9, 10, 11]);
+  assert.deepEqual(result.newlyUnlockedTitles, ["Veil Walker"]);
+});
+
+test("titles change at configured level milestones and end at Shadow Monarch at level 100", () => {
+  const engine = new ProgressionEngine();
+  const initial = engine.createInitialState("character-1", skill);
+  const xpToLevel100 = Array.from({ length: 99 }, (_, index) =>
+    defaultProgressionConfig.characterXpRequired(index + 1),
+  ).reduce((total, required) => total + required, 0);
+  const result = engine.awardXp(initial, xpToLevel100, "level-100");
+
+  assert.equal(initial.title, "Shadow Initiate");
+  assert.equal(result.state.level, 100);
+  assert.equal(result.state.title, "Shadow Monarch");
+  assert.deepEqual(result.newlyUnlockedTitles, [
+    "Veil Walker",
+    "Shadow Seeker",
+    "Nightblade Disciple",
+    "Dusk Reclaimer",
+    "Stygian Ascendant",
+    "Eternal Eclipse",
+    "Ashborne Sentinel",
+    "Umbra Mortis",
+    "Shadow Sovereign",
+    "Shadow Monarch",
+  ]);
+  assert.deepEqual(result.state.titleHistory, ["Shadow Initiate", ...result.newlyUnlockedTitles]);
 });
 
 test("duplicate completion is idempotent", () => {
@@ -92,13 +118,17 @@ test("configuration changes formulas and title/rank definitions without engine c
   const config = {
     ...defaultProgressionConfig,
     skillXpMultiplier: 0.6,
-    ranks: [...defaultProgressionConfig.ranks, { name: "SS", minimumLevel: 50 }],
-    titles: [...defaultProgressionConfig.titles, { name: "Beyond Shadow", rank: "SS" }],
+    titles: [
+      { name: "Custom Initiate", minimumLevel: 1 },
+      { name: "Beyond Shadow", minimumLevel: 2 },
+    ],
   };
   const engine = new ProgressionEngine(config);
   const state = engine.createInitialState("character-1", skill);
-  const result = engine.processQuestCompletion(state, { questId: "quest-1", primarySkillId: "focus" });
+  const result = engine.awardXp(state, 100, "quest-1", "focus");
 
+  assert.equal(state.title, "Custom Initiate");
+  assert.equal(result.state.title, "Beyond Shadow");
   assert.equal(result.skillXpGained, 60);
   assert.equal(result.state.skills.focus.xp, 60);
 });
