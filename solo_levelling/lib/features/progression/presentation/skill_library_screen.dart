@@ -7,7 +7,7 @@ import '../../dashboard/domain/dashboard_data.dart';
 import '../../dashboard/domain/dashboard_repository.dart';
 import '../domain/progression_data.dart';
 import '../domain/progression_repository.dart';
-import '../../../shared/widgets/system_notification.dart';
+import '../../notifications/notification_service.dart';
 
 class SkillLibraryScreen extends StatefulWidget {
   const SkillLibraryScreen({
@@ -131,10 +131,9 @@ class _SkillLibraryScreenState extends State<SkillLibraryScreen> {
           (skill) => !oldIds.contains(skill.id),
         );
         if (added != null && added.isNotEmpty) {
-          await SystemNotification.show(
+          await NotificationService.showSkillUnlocked(
             context,
-            icon: Icons.auto_awesome,
-            message: 'NEW SKILL UNLOCKED\n\n${added.first.name}',
+            added.first.name,
           );
         }
       }

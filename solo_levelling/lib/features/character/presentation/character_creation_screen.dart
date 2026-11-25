@@ -4,7 +4,7 @@ import '../../../app/theme/app_colors.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/network/api_client.dart';
 import '../../auth/presentation/widgets/auth_widgets.dart';
-import '../../../shared/widgets/system_notification.dart';
+import '../../notifications/notification_service.dart';
 import '../domain/character_options.dart';
 import '../domain/character_repository.dart';
 
@@ -126,11 +126,7 @@ class _CharacterCreationScreenState extends State<CharacterCreationScreen> {
         startingSkillId: skillId,
       );
       if (!mounted) return;
-      await SystemNotification.show(
-        context,
-        icon: Icons.auto_awesome,
-        message: 'Character initialized!\n\nLevel 1 unlocked\nStarting skill acquired',
-      );
+      await NotificationService.showCharacterCreated(context);
       if (!mounted) return;
       widget.onCreated();
     } on ApiException catch (error) {

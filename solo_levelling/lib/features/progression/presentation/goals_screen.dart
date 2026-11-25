@@ -5,9 +5,10 @@ import '../../../core/network/api_client.dart';
 import '../../dashboard/domain/dashboard_data.dart';
 import '../../dashboard/domain/dashboard_repository.dart';
 import '../../../shared/widgets/holographic_dialog.dart';
-import '../../../shared/widgets/system_notification.dart';
+import '../../notifications/notification_service.dart';
 import '../domain/progression_data.dart';
 import '../domain/progression_repository.dart';
+import 'quests_screen.dart';
 
 class GoalsScreen extends StatefulWidget {
   const GoalsScreen({
@@ -19,28 +20,26 @@ class GoalsScreen extends StatefulWidget {
     this.onOpenQuest,
     super.key,
   });
+
   final ProgressionRepository? repository;
   final DashboardRepository dashboardRepository;
   final String? accessToken;
   final bool isActive;
   final VoidCallback onDataChanged;
   final ValueChanged<String>? onOpenQuest;
+
   @override
   State<GoalsScreen> createState() => _GoalsScreenState();
 }
 
 class _GoalsScreenState extends State<GoalsScreen> {
   List<ProgressionGoal> _goals = const [];
+  List<ProgressionMilestone> _milestones = const [];
   List<ProgressionQuest> _quests = const [];
   bool _loading = true;
   DashboardData? _dashboard;
-  final _structureTick = ValueNotifier(0);
-
-  @override
-  void dispose() {
-    _structureTick.dispose();
-    super.dispose();
-  }
+  String? _errorMessage;
+  String? _selectedGoalId;
 
   @override
   void initState() {
@@ -51,38 +50,94 @@ class _GoalsScreenState extends State<GoalsScreen> {
   @override
   void didUpdateWidget(covariant GoalsScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!oldWidget.isActive && widget.isActive) _load();
+    if (!oldWidget.isActive && widget.isActive) {
+      _load();
+    }
   }
 
   Future<void> _load() async {
-    // This method is called from initState, refresh, and async action handlers.
-    // It may therefore finish after this screen has been removed.
     if (!mounted) return;
 
     final repo = widget.repository;
     final token = widget.accessToken;
+
     if (repo == null || token == null) {
-      setState(() => _loading = false);
+      setState(() {
+        _loading = false;
+        _errorMessage = 'Progression service is unavailable.';
+      });
       return;
     }
 
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _errorMessage = null;
+    });
+
     try {
-      final data = await repo.loadStructure(token);
+      final structure = await repo.loadStructure(token);
       if (!mounted) return;
 
       final dashboard = await widget.dashboardRepository.load(token);
       if (!mounted) return;
 
       setState(() {
-        _goals = data.goals;
-        _quests = data.quests;
+        _goals = structure.goals;
+        _milestones = structure.milestones;
+        _quests = structure.quests;
         _dashboard = dashboard;
+        _loading = false;
+
+        // If the currently selected goal was removed, return to the goals list.
+        if (_selectedGoalId != null &&
+            !_goals.any((goal) => goal.id == _selectedGoalId)) {
+          _selectedGoalId = null;
+        }
       });
-      _structureTick.value++;
-    } finally {
-      if (mounted) setState(() => _loading = false);
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _errorMessage = error.message;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _errorMessage = 'Unable to load goals. Please try again.';
+      });
     }
+  }
+
+  void _showError(Object error) {
+    if (!mounted) return;
+    final message = error is ApiException
+        ? error.message
+        : 'Something went wrong. Please try again.';
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<bool> _confirm(String title, String message) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => HolographicDialog(
+        title: title,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Delete'),
+          ),
+        ],
+        child: Text(message),
+      ),
+    );
+    return result ?? false;
   }
 
   Future<void> _create() async {
@@ -90,10 +145,12 @@ class _GoalsScreenState extends State<GoalsScreen> {
       context: context,
       builder: (_) => _GoalDialog(skills: _dashboard?.skills ?? const []),
     );
-    if (!mounted) return;
+    if (!mounted || input == null) return;
+
     final repo = widget.repository;
     final token = widget.accessToken;
-    if (input == null || repo == null || token == null) return;
+    if (repo == null || token == null) return;
+
     try {
       await repo.createGoal(
         token,
@@ -104,18 +161,11 @@ class _GoalsScreenState extends State<GoalsScreen> {
       );
       await _load();
       if (!mounted) return;
-      await SystemNotification.show(
-        context,
-        icon: Icons.flag,
-        message: 'GOAL UNLOCKED\n\n${input.title}',
-      );
+      await NotificationService.showGoalUnlocked(context, input.title);
       if (!mounted) return;
       widget.onDataChanged();
-    } on ApiException catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(error.message)));
-      }
+    } catch (error) {
+      _showError(error);
     }
   }
 
@@ -125,140 +175,581 @@ class _GoalsScreenState extends State<GoalsScreen> {
       builder: (_) =>
           _GoalDialog(goal: goal, skills: _dashboard?.skills ?? const []),
     );
-    if (!mounted) return;
+    if (!mounted || input == null) return;
+
     final repo = widget.repository;
     final token = widget.accessToken;
-    if (input == null || repo == null || token == null) return;
-    await repo.updateGoal(
-      token,
-      goalId: goal.id,
-      title: input.title,
-      description: input.description,
-      primarySkillId: input.skillId,
-      statContributions: input.statContributions,
-    );
-    await _load();
-    if (!mounted) return;
-    widget.onDataChanged();
+    if (repo == null || token == null) return;
+
+    try {
+      await repo.updateGoal(
+        token,
+        goalId: goal.id,
+        title: input.title,
+        description: input.description,
+        primarySkillId: input.skillId,
+        statContributions: input.statContributions,
+      );
+      await _load();
+      if (!mounted) return;
+      widget.onDataChanged();
+    } catch (error) {
+      _showError(error);
+    }
   }
 
   Future<void> _delete(ProgressionGoal goal) async {
-    final ok = await showDialog<bool>(
+    final ok = await _confirm(
+      'Delete goal',
+      'Remove “${goal.title}” and its linked quests?',
+    );
+    if (!mounted || !ok) return;
+
+    final repo = widget.repository;
+    final token = widget.accessToken;
+    if (repo == null || token == null) return;
+
+    try {
+      await repo.deleteGoal(token, goal.id);
+      if (_selectedGoalId == goal.id) {
+        setState(() => _selectedGoalId = null);
+      }
+      await _load();
+      if (!mounted) return;
+      widget.onDataChanged();
+    } catch (error) {
+      _showError(error);
+    }
+  }
+
+  void _openGoal(ProgressionGoal goal) {
+    setState(() => _selectedGoalId = goal.id);
+  }
+
+  Future<void> _addMilestone(ProgressionGoal goal) async {
+    final repo = widget.repository;
+    final token = widget.accessToken;
+    if (repo == null || token == null) return;
+
+    var title = '';
+    var description = '';
+    final input = await showDialog<({String title, String description})>(
       context: context,
-      builder: (_) => HolographicDialog(
-        title: 'Delete goal',
+      builder: (dialogContext) => HolographicDialog(
+        title: 'Add milestone',
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
+            onPressed: () {
+              if (title.trim().isNotEmpty) {
+                Navigator.pop(dialogContext, (
+                  title: title.trim(),
+                  description: description.trim(),
+                ));
+              }
+            },
+            child: const Text('Save'),
           ),
         ],
-        child: Text('Remove “${goal.title}” and its linked quests?'),
+        child: Column(
+          children: [
+            TextFormField(
+              onChanged: (value) => title = value,
+              decoration: const InputDecoration(labelText: 'Milestone title'),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              onChanged: (value) => description = value,
+              maxLines: 3,
+              decoration: const InputDecoration(labelText: 'Description'),
+            ),
+          ],
+        ),
       ),
     );
-    if (!mounted) return;
+    if (!mounted || input == null) return;
+
+    try {
+      await repo.createMilestone(
+        token,
+        goalId: goal.id,
+        title: input.title,
+        description: input.description,
+      );
+      await _load();
+      if (!mounted) return;
+      await NotificationService.showMilestoneUnlocked(context, input.title);
+      if (!mounted) return;
+      widget.onDataChanged();
+    } catch (error) {
+      _showError(error);
+    }
+  }
+
+  Future<void> _editMilestone(
+    ProgressionGoal goal,
+    ProgressionMilestone milestone,
+  ) async {
     final repo = widget.repository;
     final token = widget.accessToken;
-    if (ok != true || repo == null || token == null) return;
-    await repo.deleteGoal(token, goal.id);
-    await _load();
-    if (!mounted) return;
-    widget.onDataChanged();
-  }
+    if (repo == null || token == null) return;
 
-  Future<void> _openGoal(ProgressionGoal goal) async {
-    widget.onOpenQuest?.call(goal.id);
-  }
-
-
-
-
-
-
-
-
-
-
-
-  @override
-  Widget build(BuildContext context) => RefreshIndicator(
-    onRefresh: _load,
-    color: AppColors.accent,
-    backgroundColor: AppColors.surface,
-    child: ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 30),
-      children: [
-        Row(
+    var title = milestone.title;
+    var description = milestone.description;
+    final input = await showDialog<({String title, String description})>(
+      context: context,
+      builder: (dialogContext) => HolographicDialog(
+        title: 'Edit milestone',
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (title.trim().isNotEmpty) {
+                Navigator.pop(dialogContext, (
+                  title: title.trim(),
+                  description: description.trim(),
+                ));
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+        child: Column(
           children: [
-            Expanded(
+            TextFormField(
+              initialValue: title,
+              onChanged: (value) => title = value,
+              decoration: const InputDecoration(labelText: 'Milestone title'),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              initialValue: description,
+              onChanged: (value) => description = value,
+              maxLines: 3,
+              decoration: const InputDecoration(labelText: 'Description'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || input == null) return;
+
+    try {
+      await repo.updateMilestone(
+        token,
+        goalId: goal.id,
+        milestoneId: milestone.id,
+        title: input.title,
+        description: input.description,
+      );
+      await _load();
+      if (!mounted) return;
+      widget.onDataChanged();
+    } catch (error) {
+      _showError(error);
+    }
+  }
+
+  Future<void> _deleteMilestone(
+    ProgressionGoal goal,
+    ProgressionMilestone milestone,
+  ) async {
+    final repo = widget.repository;
+    final token = widget.accessToken;
+    if (repo == null || token == null) return;
+
+    final ok = await _confirm(
+      'Delete milestone',
+      'Delete “${milestone.title}”?',
+    );
+    if (!mounted || !ok) return;
+
+    try {
+      await repo.deleteMilestone(token, goal.id, milestone.id);
+      await _load();
+      if (!mounted) return;
+      widget.onDataChanged();
+    } catch (error) {
+      _showError(error);
+    }
+  }
+
+  Future<void> _addQuest(ProgressionGoal goal) async {
+    await _editQuestDialog(goal, null);
+  }
+
+  Future<void> _editQuest(ProgressionGoal goal, ProgressionQuest quest) async {
+    await _editQuestDialog(goal, quest);
+  }
+
+  Future<void> _editQuestDialog(
+    ProgressionGoal goal,
+    ProgressionQuest? quest,
+  ) async {
+    final repo = widget.repository;
+    final token = widget.accessToken;
+    if (repo == null || token == null) return;
+
+    var title = quest?.title ?? '';
+    var description = quest?.description ?? '';
+    var difficulty = quest?.difficulty ?? 'NORMAL';
+    var milestoneId = quest?.milestoneId ?? '';
+
+    final input =
+        await showDialog<
+          ({
+            String title,
+            String description,
+            String difficulty,
+            String? milestoneId,
+          })
+        >(
+          context: context,
+          builder: (dialogContext) => StatefulBuilder(
+            builder: (context, setDialogState) => HolographicDialog(
+              title: quest == null ? 'Add quest' : 'Edit quest',
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    if (title.trim().isNotEmpty) {
+                      Navigator.pop(dialogContext, (
+                        title: title.trim(),
+                        description: description.trim(),
+                        difficulty: difficulty,
+                        milestoneId: milestoneId.isEmpty ? null : milestoneId,
+                      ));
+                    }
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('GOALS', style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 5),
-                  const Text(
-                    'Choose the milestones and quests that shape your next level.',
-                    style: TextStyle(color: AppColors.textSecondary),
+                  TextFormField(
+                    initialValue: title,
+                    onChanged: (value) => title = value,
+                    decoration: const InputDecoration(labelText: 'Quest title'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    initialValue: description,
+                    onChanged: (value) => description = value,
+                    maxLines: 3,
+                    decoration: const InputDecoration(labelText: 'Description'),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: difficulty,
+                    decoration: const InputDecoration(labelText: 'Difficulty'),
+                    items: const [
+                      DropdownMenuItem(value: 'EASY', child: Text('EASY')),
+                      DropdownMenuItem(value: 'NORMAL', child: Text('NORMAL')),
+                      DropdownMenuItem(value: 'HARD', child: Text('HARD')),
+                      DropdownMenuItem(value: 'EPIC', child: Text('EPIC')),
+                    ],
+                    onChanged: (value) =>
+                        setDialogState(() => difficulty = value ?? difficulty),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: milestoneId,
+                    decoration: const InputDecoration(
+                      labelText: 'Milestone (optional)',
+                    ),
+                    items: [
+                      const DropdownMenuItem(
+                        value: '',
+                        child: Text('No milestone'),
+                      ),
+                      for (final item in _milestones.where(
+                        (item) => goal.milestoneIds.contains(item.id),
+                      ))
+                        DropdownMenuItem(
+                          value: item.id,
+                          child: Text(item.title),
+                        ),
+                    ],
+                    onChanged: (value) =>
+                        setDialogState(() => milestoneId = value ?? ''),
                   ),
                 ],
               ),
             ),
-            FilledButton.icon(
-              onPressed: _create,
-              icon: const Icon(Icons.add),
-              label: const Text('New goal'),
+          ),
+        );
+    if (!mounted || input == null) return;
+
+    try {
+      if (quest == null) {
+        await repo.createGoalQuest(
+          token,
+          goalId: goal.id,
+          title: input.title,
+          description: input.description,
+          difficulty: input.difficulty,
+          milestoneId: input.milestoneId,
+        );
+      } else {
+        await repo.updateGoalQuest(
+          token,
+          goalId: goal.id,
+          questId: quest.id,
+          title: input.title,
+          description: input.description,
+          difficulty: input.difficulty,
+          milestoneId: input.milestoneId,
+          statContributions: quest.statContributions,
+        );
+      }
+
+      await _load();
+      if (!mounted) return;
+
+      if (quest == null) {
+        await NotificationService.showQuestUnlocked(context, input.title);
+      }
+      if (!mounted) return;
+      widget.onDataChanged();
+    } catch (error) {
+      _showError(error);
+    }
+  }
+
+  Future<void> _deleteQuest(
+    ProgressionGoal goal,
+    ProgressionQuest quest,
+  ) async {
+    final repo = widget.repository;
+    final token = widget.accessToken;
+    if (repo == null || token == null) return;
+
+    final ok = await _confirm('Delete quest', 'Delete “${quest.title}”?');
+    if (!mounted || !ok) return;
+
+    try {
+      await repo.deleteGoalQuest(token, goal.id, quest.id);
+      await _load();
+      if (!mounted) return;
+      widget.onDataChanged();
+    } catch (error) {
+      _showError(error);
+    }
+  }
+
+  Future<void> _completeQuest(ProgressionQuest quest) async {
+    final repo = widget.repository;
+    final token = widget.accessToken;
+    if (repo == null || token == null) return;
+
+    await _completeAndNotify(
+      token: token,
+      title: quest.title,
+      notificationTitle: 'QUEST COMPLETED',
+      icon: Icons.check_circle_outline,
+      complete: () => repo.completeQuest(token, quest.id),
+    );
+  }
+
+  Future<void> _completeMilestone(
+    ProgressionGoal goal,
+    ProgressionMilestone milestone,
+  ) async {
+    final repo = widget.repository;
+    final token = widget.accessToken;
+    if (repo == null || token == null) return;
+
+    await _completeAndNotify(
+      token: token,
+      title: milestone.title,
+      notificationTitle: 'MILESTONE COMPLETED',
+      icon: Icons.flag,
+      complete: () => repo.completeMilestone(token, goal.id, milestone.id),
+    );
+  }
+
+  Future<void> _completeGoal(ProgressionGoal goal) async {
+    final repo = widget.repository;
+    final token = widget.accessToken;
+    if (repo == null || token == null) return;
+
+    await _completeAndNotify(
+      token: token,
+      title: goal.title,
+      notificationTitle: 'GOAL COMPLETED',
+      icon: Icons.emoji_events,
+      complete: () => repo.completeGoal(token, goal.id),
+    );
+  }
+
+  Future<void> _completeAndNotify({
+    required String token,
+    required String title,
+    required String notificationTitle,
+    required IconData icon,
+    required Future<void> Function() complete,
+  }) async {
+    try {
+      final before = await widget.dashboardRepository.load(token);
+      await complete();
+      await _load();
+      if (!mounted) return;
+
+      final after = await widget.dashboardRepository.load(token);
+      if (!mounted) return;
+
+      await NotificationService.showProgressionCompletion(
+        context,
+        before: before,
+        after: after,
+        completionTitle: notificationTitle,
+        completionSubject: title,
+        completionIcon: icon,
+      );
+      if (!mounted) return;
+      widget.onDataChanged();
+    } catch (error) {
+      _showError(error);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedGoal = _goals
+        .where((goal) => goal.id == _selectedGoalId)
+        .firstOrNull;
+
+    if (selectedGoal != null) {
+      return QuestsScreen(
+        goal: selectedGoal,
+        milestones: _milestones
+            .where(
+              (milestone) => selectedGoal.milestoneIds.contains(milestone.id),
+            )
+            .toList(growable: false),
+        quests: _quests
+            .where((quest) => quest.goalId == selectedGoal.id)
+            .toList(growable: false),
+        onEditMilestone: (milestone) => _editMilestone(selectedGoal, milestone),
+        onDeleteMilestone: (milestone) =>
+            _deleteMilestone(selectedGoal, milestone),
+        onAddMilestone: () => _addMilestone(selectedGoal),
+        onAddQuest: () => _addQuest(selectedGoal),
+        onEditQuest: (quest) => _editQuest(selectedGoal, quest),
+        onDeleteQuest: (quest) => _deleteQuest(selectedGoal, quest),
+        onCompleteQuest: _completeQuest,
+        onCompleteMilestone: (milestone) =>
+            _completeMilestone(selectedGoal, milestone),
+        onCompleteGoal: () => _completeGoal(selectedGoal),
+        onRefresh: _load,
+        onBack: () => setState(() => _selectedGoalId = null),
+      );
+    }
+
+    return Scaffold(
+      body: RefreshIndicator(
+        onRefresh: _load,
+        color: AppColors.accent,
+        backgroundColor: AppColors.surface,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 30),
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'GOALS',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 5),
+                      const Text(
+                        'Choose the milestones and quests that shape your next level.',
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+                FilledButton.icon(
+                  onPressed: _create,
+                  icon: const Icon(Icons.add),
+                  label: const Text('New goal'),
+                ),
+              ],
             ),
+            const SizedBox(height: 20),
+            if (_loading && _goals.isEmpty)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(30),
+                  child: CircularProgressIndicator(),
+                ),
+              )
+            else if (_errorMessage != null)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _errorMessage!,
+                    style: const TextStyle(color: AppColors.textSecondary),
+                  ),
+                  TextButton(onPressed: _load, child: const Text('Retry')),
+                ],
+              )
+            else if (_goals.isEmpty)
+              const Text(
+                'No goals created yet.',
+                style: TextStyle(color: AppColors.textSecondary),
+              )
+            else ...[
+              if (_goals.any((goal) => !goal.completed)) ...[
+                const _GoalSectionTitle('ACTIVE GOALS'),
+                for (final goal in _goals.where((goal) => !goal.completed)) ...[
+                  _GoalCard(
+                    goal: goal,
+                    questCount: _quests
+                        .where((q) => q.goalId == goal.id)
+                        .length,
+                    onOpen: () => _openGoal(goal),
+                    onEdit: () => _edit(goal),
+                    onDelete: () => _delete(goal),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+              ],
+              if (_goals.any((goal) => goal.completed)) ...[
+                const _GoalSectionTitle('COMPLETED GOALS'),
+                for (final goal in _goals.where((goal) => goal.completed)) ...[
+                  _GoalCard(
+                    goal: goal,
+                    questCount: _quests
+                        .where((q) => q.goalId == goal.id)
+                        .length,
+                    onOpen: () => _openGoal(goal),
+                    onEdit: () => _edit(goal),
+                    onDelete: () => _delete(goal),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+              ],
+            ],
           ],
         ),
-        const SizedBox(height: 20),
-        if (_loading && _goals.isEmpty)
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.all(30),
-              child: CircularProgressIndicator(),
-            ),
-          )
-        else if (_goals.isEmpty)
-          const Text(
-            'No goals created yet.',
-            style: TextStyle(color: AppColors.textSecondary),
-          )
-        else ...[
-          if (_goals.any((goal) => !goal.completed)) ...[
-            const _GoalSectionTitle('ACTIVE GOALS'),
-            for (final goal in _goals.where((goal) => !goal.completed)) ...[
-              _GoalCard(
-                goal: goal,
-                questCount: _quests.where((q) => q.goalId == goal.id).length,
-                onOpen: () => _openGoal(goal),
-                onEdit: () => _edit(goal),
-                onDelete: () => _delete(goal),
-              ),
-              const SizedBox(height: 12),
-            ],
-          ],
-          if (_goals.any((goal) => goal.completed)) ...[
-            const _GoalSectionTitle('COMPLETED GOALS'),
-            for (final goal in _goals.where((goal) => goal.completed)) ...[
-              _GoalCard(
-                goal: goal,
-                questCount: _quests.where((q) => q.goalId == goal.id).length,
-                onOpen: () => _openGoal(goal),
-                onEdit: () => _edit(goal),
-                onDelete: () => _delete(goal),
-              ),
-              const SizedBox(height: 12),
-            ],
-          ],
-        ],
-      ],
-    ),
-  );
+      ),
+    );
+  }
 }
 
 const _goalStats = [
@@ -503,646 +994,4 @@ class _GoalSectionTitle extends StatelessWidget {
       ),
     ),
   );
-}
-
-class _PairInput {
-  const _PairInput(this.first, this.second);
-  final String first, second;
-}
-
-class _PairDialog extends StatefulWidget {
-  const _PairDialog({
-    required this.title,
-    required this.firstLabel,
-    required this.secondLabel,
-  }) : first = null, second = null;
-  final String title, firstLabel, secondLabel;
-  final String? first, second;
-  @override
-  State<_PairDialog> createState() => _PairDialogState();
-}
-
-class _PairDialogState extends State<_PairDialog> {
-  late final TextEditingController first = TextEditingController(
-    text: widget.first,
-  );
-  late final TextEditingController second = TextEditingController(
-    text: widget.second,
-  );
-  @override
-  void dispose() {
-    first.dispose();
-    second.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => HolographicDialog(
-    title: widget.title,
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
-      ),
-      FilledButton(
-        onPressed: () {
-          if (first.text.trim().isNotEmpty) {
-            Navigator.pop(
-              context,
-              _PairInput(first.text.trim(), second.text.trim()),
-            );
-          }
-        },
-        child: const Text('Save'),
-      ),
-    ],
-    child: Column(
-      children: [
-        TextField(
-          controller: first,
-          decoration: InputDecoration(labelText: widget.firstLabel),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: second,
-          maxLines: 3,
-          decoration: InputDecoration(labelText: widget.secondLabel),
-        ),
-      ],
-    ),
-  );
-}
-
-class _QuestInput {
-  const _QuestInput(
-    this.title,
-    this.description,
-    this.difficulty,
-    this.milestoneId,
-  );
-  final String title, description, difficulty;
-  final String? milestoneId;
-}
-
-class _QuestDialog extends StatefulWidget {
-  const _QuestDialog({required this.milestones}) : quest = null;
-  final ProgressionQuest? quest;
-  final List<ProgressionMilestone> milestones;
-  @override
-  State<_QuestDialog> createState() => _QuestDialogState();
-}
-
-class _QuestDialogState extends State<_QuestDialog> {
-  late final TextEditingController title = TextEditingController(
-    text: widget.quest?.title,
-  );
-  late final TextEditingController description = TextEditingController(
-    text: widget.quest?.description,
-  );
-  late String difficulty = widget.quest?.difficulty ?? 'NORMAL';
-  late String milestoneId = widget.quest?.milestoneId ?? '';
-  @override
-  void dispose() {
-    title.dispose();
-    description.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => HolographicDialog(
-    title: 'Edit quest',
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
-      ),
-      FilledButton(
-        onPressed: () {
-          if (title.text.trim().isNotEmpty) {
-            Navigator.pop(
-              context,
-              _QuestInput(
-                title.text.trim(),
-                description.text.trim(),
-                difficulty,
-                milestoneId.isEmpty ? null : milestoneId,
-              ),
-            );
-          }
-        },
-        child: const Text('Save'),
-      ),
-    ],
-    child: Column(
-      children: [
-        TextField(
-          controller: title,
-          decoration: const InputDecoration(labelText: 'Quest title'),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: description,
-          maxLines: 3,
-          decoration: const InputDecoration(labelText: 'Description'),
-        ),
-        const SizedBox(height: 12),
-        DropdownButtonFormField<String>(
-          value: difficulty,
-          decoration: const InputDecoration(labelText: 'Difficulty'),
-          items: const [
-            DropdownMenuItem(value: 'EASY', child: Text('EASY')),
-            DropdownMenuItem(value: 'NORMAL', child: Text('NORMAL')),
-            DropdownMenuItem(value: 'HARD', child: Text('HARD')),
-          ],
-          onChanged: (value) =>
-              setState(() => difficulty = value ?? difficulty),
-        ),
-        const SizedBox(height: 12),
-        DropdownButtonFormField<String>(
-          value: milestoneId,
-          decoration: const InputDecoration(labelText: 'Milestone (optional)'),
-          items: [
-            const DropdownMenuItem(value: '', child: Text('No milestone')),
-            for (final milestone in widget.milestones)
-              DropdownMenuItem(
-                value: milestone.id,
-                child: Text(milestone.title),
-              ),
-          ],
-          onChanged: (value) => setState(() => milestoneId = value ?? ''),
-        ),
-      ],
-    ),
-  );
-}
-
-enum _GoalFilter { active, completed, all }
-
-class _GoalDetailDialog extends StatefulWidget {
-  const _GoalDetailDialog({
-    required this.goal,
-    required this.milestones,
-    required this.quests,
-    required this.onEditMilestone,
-    required this.onDeleteMilestone,
-    required this.onAddMilestone,
-    required this.onAddQuest,
-    required this.onEditQuest,
-    required this.onDeleteQuest,
-    required this.onCompleteQuest,
-    required this.onCompleteMilestone,
-    required this.onCompleteGoal,
-  });
-  final ProgressionGoal goal;
-  final List<ProgressionMilestone> milestones;
-  final List<ProgressionQuest> quests;
-  final ValueChanged<ProgressionMilestone> onEditMilestone, onDeleteMilestone;
-  final VoidCallback onAddMilestone, onAddQuest;
-  final ValueChanged<ProgressionQuest> onEditQuest, onDeleteQuest;
-  final Future<void> Function(ProgressionQuest) onCompleteQuest;
-  final Future<void> Function(ProgressionGoal, ProgressionMilestone)
-  onCompleteMilestone;
-  final Future<void> Function(ProgressionGoal) onCompleteGoal;
-
-  @override
-  State<_GoalDetailDialog> createState() => _GoalDetailDialogState();
-}
-
-class _GoalDetailDialogState extends State<_GoalDetailDialog> {
-  _GoalFilter _filter = _GoalFilter.active;
-
-  bool _matches(bool completed) => switch (_filter) {
-    _GoalFilter.active => !completed,
-    _GoalFilter.completed => completed,
-    _GoalFilter.all => true,
-  };
-
-  @override
-  Widget build(BuildContext context) => HolographicDialog(
-    title: widget.goal.title,
-    compact: true,
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Close'),
-      ),
-    ],
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (widget.goal.description.isNotEmpty)
-          Text(
-            widget.goal.description,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 12,
-            ),
-          ),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          children: [
-            OutlinedButton.icon(
-              onPressed: () {
-                Navigator.pop(context);
-                widget.onAddMilestone();
-              },
-              icon: const Icon(Icons.flag_outlined, size: 16),
-              label: const Text('Add milestone'),
-            ),
-            OutlinedButton.icon(
-              onPressed: () {
-                Navigator.pop(context);
-                widget.onAddQuest();
-              },
-              icon: const Icon(Icons.add_task, size: 16),
-              label: const Text('Add quest'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            const Text(
-              'SHOW',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
-            ),
-            const SizedBox(width: 8),
-            DropdownButton<_GoalFilter>(
-              value: _filter,
-              underline: const SizedBox.shrink(),
-              items: const [
-                DropdownMenuItem(
-                  value: _GoalFilter.active,
-                  child: Text('Active'),
-                ),
-                DropdownMenuItem(
-                  value: _GoalFilter.completed,
-                  child: Text('Completed'),
-                ),
-                DropdownMenuItem(value: _GoalFilter.all, child: Text('All')),
-              ],
-              onChanged: (value) =>
-                  setState(() => _filter = value ?? _GoalFilter.active),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        const Text(
-          'MILESTONES',
-          style: TextStyle(
-            color: AppColors.accent,
-            fontWeight: FontWeight.w800,
-            fontSize: 11,
-            letterSpacing: 1,
-          ),
-        ),
-        const SizedBox(height: 5),
-        if (widget.milestones.isEmpty)
-          const Text(
-            'No milestones yet.',
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
-          ),
-        for (final milestone in widget.milestones.where((milestone) {
-          final milestoneQuests = widget.quests.where(
-            (quest) => quest.milestoneId == milestone.id,
-          );
-          return _matches(milestone.completed) ||
-              milestoneQuests.any((quest) => _matches(quest.completed));
-        }))
-          _MilestoneTile(
-            milestone: milestone,
-            quests: widget.quests
-                .where(
-                  (quest) =>
-                      quest.milestoneId == milestone.id &&
-                      _matches(quest.completed),
-                )
-                .toList(growable: false),
-            canComplete:
-                !milestone.completed &&
-                widget.quests.any(
-                  (quest) => quest.milestoneId == milestone.id,
-                ) &&
-                widget.quests
-                    .where((quest) => quest.milestoneId == milestone.id)
-                    .every((quest) => quest.completed),
-            onEdit: () => widget.onEditMilestone(milestone),
-            onDelete: () => widget.onDeleteMilestone(milestone),
-            onEditQuest: widget.onEditQuest,
-            onDeleteQuest: widget.onDeleteQuest,
-            onCompleteQuest: widget.onCompleteQuest,
-            onCompleteMilestone: () =>
-                widget.onCompleteMilestone(widget.goal, milestone),
-          ),
-        if (widget.quests.any(
-          (quest) => quest.milestoneId == null && _matches(quest.completed),
-        )) ...[
-          const SizedBox(height: 12),
-          const Text(
-            'SIDE QUESTS',
-            style: TextStyle(
-              color: AppColors.accent,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1,
-            ),
-          ),
-          for (final quest in widget.quests.where(
-            (quest) => quest.milestoneId == null && _matches(quest.completed),
-          ))
-            _QuestTile(
-              quest: quest,
-              onEdit: () => widget.onEditQuest(quest),
-              onDelete: () => widget.onDeleteQuest(quest),
-              onComplete: () => widget.onCompleteQuest(quest),
-            ),
-        ],
-        if (!widget.goal.completed &&
-            widget.milestones.isNotEmpty &&
-            widget.milestones.every((milestone) => milestone.completed) &&
-            widget.quests.every((quest) => quest.completed))
-          Align(
-            alignment: Alignment.centerRight,
-            child: FilledButton(
-              style: FilledButton.styleFrom(
-                minimumSize: const Size(0, 32),
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                visualDensity: const VisualDensity(
-                  horizontal: -3,
-                  vertical: -3,
-                ),
-              ),
-              onPressed: () => widget.onCompleteGoal(widget.goal),
-              child: const Text('Complete goal'),
-            ),
-          ),
-      ],
-    ),
-  );
-}
-
-class _MilestoneTile extends StatelessWidget {
-  const _MilestoneTile({
-    required this.milestone,
-    required this.quests,
-    required this.onEdit,
-    required this.onDelete,
-    required this.onEditQuest,
-    required this.onDeleteQuest,
-    required this.onCompleteQuest,
-    required this.onCompleteMilestone,
-    required this.canComplete,
-  });
-  final ProgressionMilestone milestone;
-  final List<ProgressionQuest> quests;
-  final VoidCallback onEdit, onDelete;
-  final ValueChanged<ProgressionQuest> onEditQuest, onDeleteQuest;
-  final Future<void> Function(ProgressionQuest) onCompleteQuest;
-  final Future<void> Function() onCompleteMilestone;
-  final bool canComplete;
-  @override
-  Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.only(bottom: 6),
-    padding: const EdgeInsets.all(7),
-    decoration: BoxDecoration(
-      color: AppColors.surfaceElevated,
-      borderRadius: BorderRadius.circular(9),
-      border: Border.all(color: AppColors.border),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                milestone.title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 15,
-                ),
-              ),
-            ),
-            IconButton(
-              iconSize: 15,
-              visualDensity: const VisualDensity(horizontal: -3, vertical: -3),
-              onPressed: onEdit,
-              icon: const Icon(
-                Icons.edit_outlined,
-                size: 16,
-                color: AppColors.accent,
-              ),
-            ),
-            IconButton(
-              iconSize: 15,
-              visualDensity: const VisualDensity(horizontal: -3, vertical: -3),
-              onPressed: onDelete,
-              icon: const Icon(
-                Icons.delete_outline,
-                size: 16,
-                color: Colors.redAccent,
-              ),
-            ),
-          ],
-        ),
-        if (milestone.description.isNotEmpty)
-          Text(
-            milestone.description,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 13,
-            ),
-          ),
-        if (canComplete)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: const VisualDensity(
-                  horizontal: -4,
-                  vertical: -4,
-                ),
-              ),
-              onPressed: onCompleteMilestone,
-              icon: const Icon(Icons.check, size: 13),
-              label: const Text(
-                'Complete milestone',
-                style: TextStyle(fontSize: 10),
-              ),
-            ),
-          ),
-        for (final quest in quests)
-          _QuestTile(
-            quest: quest,
-            onEdit: () => onEditQuest(quest),
-            onDelete: () => onDeleteQuest(quest),
-            onComplete: () => onCompleteQuest(quest),
-          ),
-      ],
-    ),
-  );
-}
-
-class _QuestTile extends StatelessWidget {
-  const _QuestTile({
-    required this.quest,
-    required this.onEdit,
-    required this.onDelete,
-    required this.onComplete,
-  });
-  final ProgressionQuest quest;
-  final VoidCallback onEdit, onDelete;
-  final Future<void> Function() onComplete;
-  @override
-  Widget build(BuildContext context) => Material(
-    color: Colors.transparent,
-    child: ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
-      dense: true,
-      visualDensity: const VisualDensity(horizontal: -2, vertical: -3),
-      leading: Icon(
-        quest.completed ? Icons.check_circle : Icons.track_changes,
-        color: quest.completed ? Colors.greenAccent : AppColors.accent,
-      ),
-      title: Text(
-        quest.title,
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-      ),
-      subtitle: Text(
-        '${quest.difficulty} • ${quest.completed ? 'Completed' : 'Active'}',
-      ),
-      onTap: () => showDialog<void>(
-        context: context,
-        builder: (_) => HolographicDialog(
-          title: 'Quest details',
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
-            ),
-          ],
-          child: _DashboardStyleQuestCard(quest: quest, onComplete: onComplete),
-        ),
-      ),
-      trailing: Wrap(
-        children: [
-          IconButton(
-            tooltip: 'Edit quest',
-            iconSize: 15,
-            visualDensity: const VisualDensity(horizontal: -3, vertical: -3),
-            onPressed: onEdit,
-            icon: const Icon(Icons.edit_outlined, color: AppColors.accent),
-          ),
-          IconButton(
-            tooltip: 'Delete quest',
-            iconSize: 15,
-            visualDensity: const VisualDensity(horizontal: -3, vertical: -3),
-            onPressed: onDelete,
-            icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-class _DashboardStyleQuestCard extends StatelessWidget {
-  const _DashboardStyleQuestCard({
-    required this.quest,
-    required this.onComplete,
-  });
-  final ProgressionQuest quest;
-  final Future<void> Function() onComplete;
-
-  @override
-  Widget build(BuildContext context) {
-    final progress = quest.completed ? 1.0 : 0.0;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xAA12345A), Color(0x66050B18)],
-        ),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.primaryGlow),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primaryGlow.withOpacity(.16),
-            blurRadius: 14,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Text(
-                quest.type == 'MAIN' ? 'MAIN QUEST' : 'SIDE QUEST',
-                style: const TextStyle(
-                  color: AppColors.accent,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                quest.difficulty,
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 11,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            quest.title,
-            style: Theme.of(context).textTheme.titleMedium
-                ?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            quest.description.isEmpty ? 'No description.' : quest.description,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(height: 10),
-          LinearProgressIndicator(
-            value: progress,
-            minHeight: 4,
-            backgroundColor: AppColors.surfaceElevated,
-            color: AppColors.primaryGlow,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            quest.completed ? 'COMPLETED' : 'ACTIVE',
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 11,
-            ),
-          ),
-          if (!quest.completed) ...[
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton(
-                onPressed: () async {
-                  Navigator.pop(context);
-                  await onComplete();
-                },
-                child: const Text('Complete quest'),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
 }

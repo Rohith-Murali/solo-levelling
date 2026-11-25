@@ -8,8 +8,8 @@ import '../domain/dashboard_data.dart';
 import '../domain/dashboard_repository.dart';
 import '../../progression/domain/progression_data.dart';
 import '../../progression/domain/progression_repository.dart';
-import '../../../shared/widgets/system_notification.dart';
 import '../../../shared/widgets/holographic_dialog.dart';
+import '../../notifications/notification_service.dart';
 
 part 'dashboard_header_widgets.dart';
 part 'dashboard_quest_skill_widgets.dart';
@@ -184,6 +184,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+
   void _showTokenDetails(BuildContext context, DashboardCharacter character) {
     final repository = widget.progressionRepository;
     final token = widget.accessToken;
@@ -285,100 +286,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final added = after.skills.where((skill) => !oldIds.contains(skill.id));
         final skill = added.isEmpty ? null : added.first;
         if (skill != null) {
-          await SystemNotification.showStack(context, [
-            SystemNotificationData(
-              icon: Icons.auto_awesome,
-              message: 'NEW SKILL UNLOCKED\n\n${skill.name}',
-            ),
-          ]);
+          await NotificationService.showSkillUnlocked(context, skill.name);
         }
         if (mounted) widget.onProgressionChanged?.call();
       } else if (kind == _ProgressionActionKind.quest) {
-        final xp = before == null
-            ? 0
-            : (after.character.totalXp - before.character.totalXp).clamp(
-                0,
-                1 << 30,
-              );
-        final notifications = <SystemNotificationData>[
-          SystemNotificationData(
-            icon: Icons.check_circle_outline,
-            message: 'QUEST COMPLETED\n\n+$xp XP EARNED',
-          ),
-        ];
-        final previousActivityIds = {
-          for (final activity in before?.recentActivity ?? const [])
-            activity.id,
-        };
-        final characterLevelledUp = after.recentActivity.any(
-          (activity) =>
-              !previousActivityIds.contains(activity.id) &&
-              activity.type == 'CHARACTER_LEVEL_INCREASED',
+        await NotificationService.showProgressionCompletion(
+          context,
+          before: before,
+          after: after,
+          completionTitle: 'QUEST COMPLETED',
+          completionIcon: Icons.check_circle_outline,
         );
-        if (characterLevelledUp ||
-            (before != null &&
-                after.character.level > before.character.level)) {
-          final levelsGained = before == null
-              ? 1
-              : after.character.level - before.character.level;
-          notifications.add(
-            SystemNotificationData(
-              icon: Icons.trending_up,
-              message: before != null && levelsGained > 1
-                  ? 'LEVELLED UP\n\nLV ${before.character.level} -> ${after.character.level} (+$levelsGained)'
-                  : 'LEVELLED UP\n\nLV ${after.character.level}',
-            ),
-          );
-        }
-        if (before != null) {
-          final tokensEarned =
-              after.character.skillUnlockTokens -
-              before.character.skillUnlockTokens;
-          if (tokensEarned > 0) {
-            notifications.add(
-              SystemNotificationData(
-                icon: Icons.token_outlined,
-                message:
-                    '$tokensEarned SKILL UNLOCK TOKEN${tokensEarned == 1 ? '' : 'S'} EARNED',
-              ),
-            );
-          }
-          final oldSkills = {
-            for (final skill in before.skills) skill.id: skill,
-          };
-          for (final skill in after.skills) {
-            final oldSkill = oldSkills[skill.id];
-            final skillXpGained = (skill.totalXp - (oldSkill?.totalXp ?? 0))
-                .clamp(0, 1 << 30);
-            if (skillXpGained > 0) {
-              notifications.add(
-                SystemNotificationData(
-                  icon: Icons.auto_awesome,
-                  message:
-                      '${skill.name.toUpperCase()}\n+$skillXpGained SKILL XP',
-                ),
-              );
-            }
-            final skillLevelledUp = after.recentActivity.any(
-              (activity) =>
-                  !previousActivityIds.contains(activity.id) &&
-                  activity.type == 'SKILL_LEVEL_INCREASED' &&
-                  activity.relatedEntityId == skill.id,
-            );
-            if (skillLevelledUp ||
-                (oldSkill != null && skill.level > oldSkill.level)) {
-              notifications.add(
-                SystemNotificationData(
-                  icon: Icons.auto_awesome,
-                  message: oldSkill != null && skill.level - oldSkill.level > 1
-                      ? 'SKILL ${skill.name.toUpperCase()} LEVELLED UP\n\nLV ${oldSkill.level} -> ${skill.level}'
-                      : 'SKILL ${skill.name.toUpperCase()} LEVELLED UP\n\nLV ${skill.level}',
-                ),
-              );
-            }
-          }
-        }
-        await SystemNotification.showStack(context, notifications);
         if (mounted) widget.onProgressionChanged?.call();
       }
     } on ApiException catch (error) {

@@ -7,7 +7,6 @@ import '../../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../../features/dashboard/presentation/activity_log_screen.dart';
 import '../../../features/dashboard/presentation/character_titles_screen.dart';
 import '../../../features/progression/presentation/goals_screen.dart';
-import '../../../features/progression/presentation/quests_screen.dart';
 import '../../../features/progression/presentation/skill_library_screen.dart';
 import '../../../features/progression/domain/progression_repository.dart';
 import 'system_bottom_nav.dart';
@@ -23,6 +22,7 @@ class MainShell extends StatefulWidget {
     this.progressionRepository,
     super.key,
   });
+
   final DashboardRepository repository;
   final String? Function() accessTokenProvider;
   final VoidCallback onLogout;
@@ -38,40 +38,28 @@ class _MainShellState extends State<MainShell> {
   int _dashboardRevision = 0;
   final Set<int> _visitedTabs = <int>{0};
   DashboardCharacter? _character;
-  String? _questGoalId;
 
   void _select(int index) {
-    if (index != _selectedIndex) {
-      setState(() {
-        _selectedIndex = index;
-        _visitedTabs.add(index);
-      });
-    }
+    if (index < 0 || index > 4 || index == _selectedIndex) return;
+
+    setState(() {
+      _selectedIndex = index;
+      _visitedTabs.add(index);
+    });
   }
 
   void _refreshDashboard() {
     setState(() => _dashboardRevision++);
   }
 
-  void _openQuestGoal(String goalId) {
-    setState(() {
-      _questGoalId = goalId;
-      _selectedIndex = 2;
-      _visitedTabs.add(2);
-    });
-  }
-
-  void _clearQuestGoal() {
-    setState(() => _questGoalId = null);
-  }
-
   @override
   Widget build(BuildContext context) {
     final accessToken = widget.accessTokenProvider();
+
     return Scaffold(
       appBar: SystemTopBar(
         character: _character,
-        onCharacterTap: () => _select(4),
+        onCharacterTap: () => _select(3),
       ),
       drawer: SystemDrawer(
         character: _character,
@@ -89,61 +77,53 @@ class _MainShellState extends State<MainShell> {
               repository: widget.repository,
               accessToken: accessToken,
               onCharacterRequired: widget.onCharacterRequired,
-              onViewActivity: () => _select(5),
+              onViewActivity: () => _select(4),
               onProgressionChanged: _refreshDashboard,
               progressionRepository: widget.progressionRepository,
-              onCharacterLoaded: (character) =>
-                  setState(() => _character = character),
+              onCharacterLoaded: (character) {
+                if (!mounted) return;
+                setState(() => _character = character);
+              },
             )
           else
             const SizedBox.shrink(),
+
           if (_visitedTabs.contains(1))
             GoalsScreen(
-              key: ValueKey<int>(_dashboardRevision),
               repository: widget.progressionRepository,
               dashboardRepository: widget.repository,
               accessToken: accessToken,
               isActive: _selectedIndex == 1,
               onDataChanged: _refreshDashboard,
-              onOpenQuest: _openQuestGoal,
             )
           else
             const SizedBox.shrink(),
+
           if (_visitedTabs.contains(2))
-            QuestOverviewScreen(
-              repository: widget.progressionRepository,
-              dashboardRepository: widget.repository,
-              accessToken: accessToken,
-              isActive: _selectedIndex == 2,
-              onDataChanged: _refreshDashboard,
-              goalId: _questGoalId,
-              onClearGoal: _clearQuestGoal,
-            )
-          else
-            const SizedBox.shrink(),
-          if (_visitedTabs.contains(3))
             SkillLibraryScreen(
               dashboardRepository: widget.repository,
               progressionRepository: widget.progressionRepository,
               accessToken: accessToken,
-              isActive: _selectedIndex == 3,
+              isActive: _selectedIndex == 2,
               onDataChanged: _refreshDashboard,
             )
           else
             const SizedBox.shrink(),
-          if (_visitedTabs.contains(4))
+
+          if (_visitedTabs.contains(3))
             CharacterStatusScreen(
               repository: widget.repository,
               accessToken: accessToken,
-              isActive: _selectedIndex == 4,
+              isActive: _selectedIndex == 3,
             )
           else
             const SizedBox.shrink(),
-          if (_visitedTabs.contains(5))
+
+          if (_visitedTabs.contains(4))
             ActivityLogScreen(
               repository: widget.repository,
               accessToken: accessToken,
-              isActive: _selectedIndex == 5,
+              isActive: _selectedIndex == 4,
             )
           else
             const SizedBox.shrink(),
@@ -168,6 +148,7 @@ class _MainShellState extends State<MainShell> {
       );
       return;
     }
+
     Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (_) => _SystemInfoPage(title: label)),
     );
@@ -176,23 +157,24 @@ class _MainShellState extends State<MainShell> {
 
 class _SystemInfoPage extends StatelessWidget {
   const _SystemInfoPage({required this.title});
+
   final String title;
 
   @override
   Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(28),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(title),
-          const SizedBox(height: 10),
-          const Text(
-            'This system module is not connected yet.',
-            textAlign: TextAlign.center,
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(title),
+              const SizedBox(height: 10),
+              const Text(
+                'This system module is not connected yet.',
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
-        ],
-      ),
-    ),
-  );
+        ),
+      );
 }

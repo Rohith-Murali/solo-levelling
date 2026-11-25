@@ -17,7 +17,6 @@ import 'package:solo_levelling/features/dashboard/domain/dashboard_data.dart';
 import 'package:solo_levelling/features/dashboard/domain/dashboard_repository.dart';
 import 'package:solo_levelling/features/progression/domain/progression_data.dart';
 import 'package:solo_levelling/features/progression/domain/progression_repository.dart';
-import 'package:solo_levelling/features/progression/presentation/quests_screen.dart';
 
 void main() {
   test('primary destinations omit quests and preserve shell tab indices', () {
@@ -307,20 +306,6 @@ void main() {
     ];
     var dashboardRefreshed = false;
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: QuestOverviewScreen(
-          repository: progressionRepository,
-          dashboardRepository: dashboardRepository,
-          accessToken: 'access-token',
-          isActive: true,
-          goalId: 'goal-1',
-          onDataChanged: () => dashboardRefreshed = true,
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
     await tester.tap(find.text('Complete goal'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
@@ -370,20 +355,6 @@ void main() {
     ];
     var dashboardRefreshed = false;
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: QuestOverviewScreen(
-          repository: progressionRepository,
-          dashboardRepository: dashboardRepository,
-          accessToken: 'access-token',
-          isActive: true,
-          goalId: 'goal-1',
-          onDataChanged: () => dashboardRefreshed = true,
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
     await tester.tap(find.text('Prepare demo'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Complete quest'));
@@ -420,20 +391,6 @@ void main() {
         status: 'ACTIVE',
       ),
     ];
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: QuestOverviewScreen(
-          repository: progressionRepository,
-          dashboardRepository: dashboardRepository,
-          accessToken: 'access-token',
-          isActive: true,
-          goalId: 'goal-1',
-          onDataChanged: () {},
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
 
     await tester.tap(find.text('Add milestone'));
     await tester.pumpAndSettle();
