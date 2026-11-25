@@ -390,17 +390,17 @@ test("quest completion backfills legacy goal and milestone fields", async () => 
     await service.complete("user-1", quest.id);
 
     assert.equal(character.milestones[0].description, "Foundation");
+    assert.equal(character.milestones[0].completed, false);
     assert.equal(character.goals[0].primarySkillId, "focus");
-    assert.equal(character.goals[0].status, "COMPLETED");
-    assert.equal(character.goals[0].completed, true);
+    assert.equal(character.goals[0].status, "ACTIVE");
+    assert.equal(character.goals[0].completed, false);
     assert.ok(character.goals[0].createdAt instanceof Date);
-    assert.equal(character.totalXp, 295);
-    assert.equal(character.progressionEvents.filter((event) => event.metadata?.xpTransaction).length, 4);
+    assert.equal(character.totalXp, 15);
     assert.deepEqual(
       character.progressionEvents
         .filter((event) => event.metadata?.xpTransaction)
         .map((event) => event.metadata.xpTransaction.sourceType),
-      ["QUEST", "QUEST", "MILESTONE", "GOAL"],
+      ["QUEST", "QUEST"],
     );
     const transactionCount = character.progressionEvents.filter(
       (event) => event.metadata?.xpTransaction,
@@ -411,6 +411,126 @@ test("quest completion backfills legacy goal and milestone fields", async () => 
       character.progressionEvents.filter((event) => event.metadata?.xpTransaction).length,
       transactionCount,
     );
+  } finally {
+    User.findById = originalFindById;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+});
+
+test("milestone and goal complete only when requested and do not cascade from quests", async () => {
+  const originalFindById = User.findById;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const quest = {
+    id: "quest-1",
+    title: "Finish the draft",
+    description: "Write the draft.",
+    type: "MAIN",
+    difficulty: "EASY",
+    primarySkillId: "focus",
+    completed: false,
+  };
+  let character = createCharacterRecord({
+    quests: [quest],
+    milestones: [{
+      id: "milestone-1",
+      title: "Draft",
+      description: "Draft",
+      questIds: [quest.id],
+      completed: false,
+    }],
+    goals: [{
+      id: "goal-1",
+      title: "Publish",
+      description: "Publish the work.",
+      milestoneIds: ["milestone-1"],
+      completed: false,
+      status: "ACTIVE",
+      primarySkillId: "focus",
+    }],
+  });
+
+  try {
+    User.findById = () => ({
+      select: async () => ({ character }),
+    });
+    User.findOneAndUpdate = async (_filter, update) => {
+      character = update.$set.character;
+      return { character };
+    };
+
+    const service = createQuestService();
+    await service.complete("user-1", quest.id);
+    assert.equal(character.milestones[0].completed, false);
+    assert.equal(character.goals[0].completed, false);
+
+    await service.completeMilestone("user-1", "goal-1", "milestone-1");
+    assert.equal(character.milestones[0].completed, true);
+    assert.equal(character.goals[0].completed, false);
+    assert.equal(character.goals[0].status, "ACTIVE");
+    assert.deepEqual(
+      character.progressionEvents
+        .filter((event) => event.metadata?.xpTransaction)
+        .map((event) => event.metadata.xpTransaction.sourceType),
+      ["QUEST", "QUEST", "MILESTONE"],
+    );
+
+    await service.completeGoal("user-1", "goal-1");
+    assert.equal(character.goals[0].completed, true);
+    assert.equal(character.goals[0].status, "COMPLETED");
+    assert.deepEqual(
+      character.progressionEvents
+        .filter((event) => event.metadata?.xpTransaction)
+        .map((event) => event.metadata.xpTransaction.sourceType),
+      ["QUEST", "QUEST", "MILESTONE", "GOAL"],
+    );
+  } finally {
+    User.findById = originalFindById;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+});
+
+test("adding a milestone to a completed goal reopens the goal", async () => {
+  const originalFindById = User.findById;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const now = new Date();
+  let character = createCharacterRecord({
+    goals: [{
+      id: "completed-goal",
+      title: "Completed goal",
+      description: "Add another milestone.",
+      milestoneIds: [],
+      completed: true,
+      status: "COMPLETED",
+      createdAt: now,
+      completedAt: now,
+      primarySkillId: "focus",
+    }],
+  });
+
+  try {
+    User.findById = () => ({
+      select: async () => ({ character }),
+    });
+    User.findOneAndUpdate = async (_filter, update) => {
+      character = update.$set.character;
+      await new User({
+        email: "hunter@example.com",
+        passwordHash: "test",
+        character,
+      }).validate();
+      return { character };
+    };
+
+    await createQuestService().createMilestone(
+      "user-1",
+      "completed-goal",
+      { title: "Next chapter", description: "Keep going." },
+    );
+
+    assert.equal(character.goals[0].status, "ACTIVE");
+    assert.equal(character.goals[0].completed, false);
+    assert.equal(character.milestones.length, 1);
+    assert.equal(character.milestones[0].title, "Next chapter");
   } finally {
     User.findById = originalFindById;
     User.findOneAndUpdate = originalFindOneAndUpdate;

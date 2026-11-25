@@ -33,6 +33,13 @@ class _GoalsScreenState extends State<GoalsScreen> {
   List<ProgressionQuest> _quests = const [];
   bool _loading = true;
   DashboardData? _dashboard;
+  final _structureTick = ValueNotifier(0);
+
+  @override
+  void dispose() {
+    _structureTick.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -47,24 +54,32 @@ class _GoalsScreenState extends State<GoalsScreen> {
   }
 
   Future<void> _load() async {
+    // This method is called from initState, refresh, and async action handlers.
+    // It may therefore finish after this screen has been removed.
+    if (!mounted) return;
+
     final repo = widget.repository;
     final token = widget.accessToken;
     if (repo == null || token == null) {
       setState(() => _loading = false);
       return;
     }
+
     setState(() => _loading = true);
     try {
       final data = await repo.loadStructure(token);
+      if (!mounted) return;
+
       final dashboard = await widget.dashboardRepository.load(token);
-      if (mounted) {
-        setState(() {
-          _goals = data.goals;
-          _milestones = data.milestones;
-          _quests = data.quests;
-          _dashboard = dashboard;
-        });
-      }
+      if (!mounted) return;
+
+      setState(() {
+        _goals = data.goals;
+        _milestones = data.milestones;
+        _quests = data.quests;
+        _dashboard = dashboard;
+      });
+      _structureTick.value++;
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -75,6 +90,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
       context: context,
       builder: (_) => _GoalDialog(skills: _dashboard?.skills ?? const []),
     );
+    if (!mounted) return;
     final repo = widget.repository;
     final token = widget.accessToken;
     if (input == null || repo == null || token == null) return;
@@ -109,6 +125,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
       builder: (_) =>
           _GoalDialog(goal: goal, skills: _dashboard?.skills ?? const []),
     );
+    if (!mounted) return;
     final repo = widget.repository;
     final token = widget.accessToken;
     if (input == null || repo == null || token == null) return;
@@ -121,6 +138,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
       statContributions: input.statContributions,
     );
     await _load();
+    if (!mounted) return;
     widget.onDataChanged();
   }
 
@@ -142,36 +160,58 @@ class _GoalsScreenState extends State<GoalsScreen> {
         child: Text('Remove “${goal.title}” and its linked quests?'),
       ),
     );
+    if (!mounted) return;
     final repo = widget.repository;
     final token = widget.accessToken;
     if (ok != true || repo == null || token == null) return;
     await repo.deleteGoal(token, goal.id);
     await _load();
+    if (!mounted) return;
     widget.onDataChanged();
   }
 
   Future<void> _openGoal(ProgressionGoal goal) async {
-    final quests = _quests
-        .where((quest) => quest.goalId == goal.id)
-        .toList(growable: false);
-    final milestones = _milestones
-        .where((milestone) => goal.milestoneIds.contains(milestone.id))
-        .toList(growable: false);
     await showDialog<void>(
       context: context,
-      builder: (_) => _GoalDetailDialog(
-        goal: goal,
-        milestones: milestones,
-        quests: quests,
-        onEditMilestone: _editMilestone,
-        onDeleteMilestone: _deleteMilestone,
-        onAddMilestone: () => _addMilestone(goal),
-        onAddQuest: () => _addQuest(goal),
-        onEditQuest: (quest) => _editQuest(goal, quest),
-        onDeleteQuest: (quest) => _deleteQuest(goal, quest),
-        onCompleteQuest: _completeQuest,
-        onCompleteMilestone: _completeMilestone,
-        onCompleteGoal: _completeGoal,
+      builder: (_) => ValueListenableBuilder<int>(
+        valueListenable: _structureTick,
+        builder: (context, _, __) {
+          final current = _goals
+              .where((item) => item.id == goal.id)
+              .firstOrNull;
+          if (current == null) {
+            return HolographicDialog(
+              title: goal.title,
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Close'),
+                ),
+              ],
+              child: const Text('This goal is no longer available.'),
+            );
+          }
+          return _GoalDetailDialog(
+            goal: current,
+            milestones: _milestones
+                .where(
+                  (milestone) => current.milestoneIds.contains(milestone.id),
+                )
+                .toList(growable: false),
+            quests: _quests
+                .where((quest) => quest.goalId == current.id)
+                .toList(growable: false),
+            onEditMilestone: _editMilestone,
+            onDeleteMilestone: _deleteMilestone,
+            onAddMilestone: () => _addMilestone(current),
+            onAddQuest: () => _addQuest(current),
+            onEditQuest: (quest) => _editQuest(current, quest),
+            onDeleteQuest: (quest) => _deleteQuest(current, quest),
+            onCompleteQuest: _completeQuest,
+            onCompleteMilestone: _completeMilestone,
+            onCompleteGoal: _completeGoal,
+          );
+        },
       ),
     );
   }
@@ -187,6 +227,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
         second: milestone.description,
       ),
     );
+    if (!mounted) return;
     final repo = widget.repository;
     final token = widget.accessToken;
     if (input == null || repo == null || token == null) return;
@@ -201,8 +242,10 @@ class _GoalsScreenState extends State<GoalsScreen> {
       description: input.second,
     );
     await _load();
+    if (!mounted) return;
     widget.onDataChanged();
-    if (mounted) Navigator.of(context).pop();
+    if (!mounted) return;
+    Navigator.of(context).pop();
   }
 
   Future<void> _addMilestone(ProgressionGoal goal) async {
@@ -214,6 +257,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
         secondLabel: 'Description',
       ),
     );
+    if (!mounted) return;
     final repo = widget.repository;
     final token = widget.accessToken;
     if (input == null || repo == null || token == null) return;
@@ -239,6 +283,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
       'Delete milestone',
       'Delete “${milestone.title}”?',
     );
+    if (!mounted) return;
     final repo = widget.repository;
     final token = widget.accessToken;
     if (!ok || repo == null || token == null) return;
@@ -247,8 +292,10 @@ class _GoalsScreenState extends State<GoalsScreen> {
     );
     await repo.deleteMilestone(token, goal.id, milestone.id);
     await _load();
+    if (!mounted) return;
     widget.onDataChanged();
-    if (mounted) Navigator.of(context).pop();
+    if (!mounted) return;
+    Navigator.of(context).pop();
   }
 
   Future<void> _editQuest(ProgressionGoal goal, ProgressionQuest quest) async {
@@ -259,6 +306,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
       context: context,
       builder: (_) => _QuestDialog(quest: quest, milestones: goalMilestones),
     );
+    if (!mounted) return;
     final repo = widget.repository;
     final token = widget.accessToken;
     if (input == null || repo == null || token == null) return;
@@ -273,8 +321,10 @@ class _GoalsScreenState extends State<GoalsScreen> {
       statContributions: quest.statContributions,
     );
     await _load();
+    if (!mounted) return;
     widget.onDataChanged();
-    if (mounted) Navigator.of(context).pop();
+    if (!mounted) return;
+    Navigator.of(context).pop();
   }
 
   Future<void> _addQuest(ProgressionGoal goal) async {
@@ -285,6 +335,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
       context: context,
       builder: (_) => _QuestDialog(milestones: goalMilestones),
     );
+    if (!mounted) return;
     final repo = widget.repository;
     final token = widget.accessToken;
     if (input == null || repo == null || token == null) return;
@@ -319,13 +370,16 @@ class _GoalsScreenState extends State<GoalsScreen> {
     ProgressionQuest quest,
   ) async {
     final ok = await _confirm('Delete quest', 'Delete “${quest.title}”?');
+    if (!mounted) return;
     final repo = widget.repository;
     final token = widget.accessToken;
     if (!ok || repo == null || token == null) return;
     await repo.deleteGoalQuest(token, goal.id, quest.id);
     await _load();
+    if (!mounted) return;
     widget.onDataChanged();
-    if (mounted) Navigator.of(context).pop();
+    if (!mounted) return;
+    Navigator.of(context).pop();
   }
 
   Future<void> _completeQuest(ProgressionQuest quest) async {
@@ -421,7 +475,6 @@ class _GoalsScreenState extends State<GoalsScreen> {
       }
       await SystemNotification.showStack(context, notifications);
       if (!mounted) return;
-      Navigator.of(context).pop();
       widget.onDataChanged();
     } on ApiException catch (error) {
       if (mounted) {
@@ -453,7 +506,6 @@ class _GoalsScreenState extends State<GoalsScreen> {
         message: 'MILESTONE COMPLETED\n\n${milestone.title}\n+$gainedXp XP',
       );
       if (!mounted) return;
-      Navigator.of(context).pop();
       widget.onDataChanged();
     } on ApiException catch (error) {
       if (mounted) {

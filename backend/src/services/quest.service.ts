@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { AppError } from "../errors/app-error.js";
-import { ProgressionEngine, type ProgressionEvent, type ProgressionResult, type ProgressionState } from "../core/progression/index.js";
+import { ProgressionEngine, type ProgressionEvent, type ProgressionState } from "../core/progression/index.js";
 import { resolveTitle } from "../core/progression/resolvers.js";
 import { User } from "../models/user.model.js";
 import type { CharacterRecord, CharacterStats, GoalRecord, MilestoneRecord, QuestRecord, SkillRecord } from "../models/user.model.js";
@@ -122,79 +122,28 @@ function requiredMilestoneQuests(milestone: MilestoneRecord, quests: QuestRecord
   );
 }
 
-function readyMilestoneIds(milestones: MilestoneRecord[], quests: QuestRecord[]): string[] {
-  return milestones
-    .filter((milestone) => !milestone.completed)
-    .filter((milestone) => {
-      const requiredQuests = requiredMilestoneQuests(milestone, quests);
-      return requiredQuests.length > 0 && requiredQuests.every((quest) => quest.completed);
-    })
-    .map((milestone) => milestone.id);
-}
-
-function applyMilestoneAndGoalBonuses(
+function applyMilestoneBonus(
   engine: ProgressionEngine,
   initialState: ProgressionState,
   initialMilestones: MilestoneRecord[],
-  initialGoals: GoalRecord[],
-  milestoneIds: readonly string[],
+  milestoneId: string,
   completedAt: Date,
 ) {
-  let state = initialState;
   const milestones = [...initialMilestones];
-  const goals = [...initialGoals];
-  const events: ProgressionEvent[] = [];
-  const results: ProgressionResult[] = [];
-
-  for (const milestoneId of milestoneIds) {
-    const milestoneIndex = milestones.findIndex((candidate) => candidate.id === milestoneId);
-    const milestone = milestones[milestoneIndex];
-    if (!milestone || milestone.completed) continue;
-
-    const milestoneAward = engine.awardCompletionBonus(
-      state,
-      milestoneId,
-      "MILESTONE_COMPLETED",
-      completedAt,
-    );
-    state = milestoneAward.state;
-    results.push(milestoneAward);
-    events.push(...milestoneAward.events);
-    milestones[milestoneIndex] = { ...milestone, completed: true, completedAt };
-
-    for (let goalIndex = 0; goalIndex < goals.length; goalIndex++) {
-      const goal = goals[goalIndex]!;
-      if (
-        goal.completed ||
-        goal.status === "ARCHIVED" ||
-        !goal.milestoneIds.includes(milestoneId) ||
-        goal.milestoneIds.length === 0 ||
-        !goal.milestoneIds.every((id) =>
-          milestones.find((candidate) => candidate.id === id)?.completed === true,
-        )
-      ) {
-        continue;
-      }
-
-      const goalAward = engine.awardCompletionBonus(
-        state,
-        goal.id,
-        "GOAL_COMPLETED",
-        completedAt,
-      );
-      state = goalAward.state;
-      results.push(goalAward);
-      events.push(...goalAward.events);
-      goals[goalIndex] = {
-        ...goal,
-        completed: true,
-        status: "COMPLETED",
-        completedAt,
-      };
-    }
+  const milestoneIndex = milestones.findIndex((candidate) => candidate.id === milestoneId);
+  const milestone = milestones[milestoneIndex];
+  if (!milestone || milestone.completed) {
+    return { state: initialState, milestones, events: [] as ProgressionEvent[] };
   }
 
-  return { state, milestones, goals, events, results };
+  const milestoneAward = engine.awardCompletionBonus(
+    initialState,
+    milestoneId,
+    "MILESTONE_COMPLETED",
+    completedAt,
+  );
+  milestones[milestoneIndex] = { ...milestone, completed: true, completedAt };
+  return { state: milestoneAward.state, milestones, events: milestoneAward.events };
 }
 
 function progressionCharacterFields(character: CharacterRecord, state: ProgressionState) {
@@ -212,35 +161,6 @@ function progressionCharacterFields(character: CharacterRecord, state: Progressi
       level: state.skills[character.startingSkill.id]?.level ?? character.startingSkill.level,
       xp: state.skills[character.startingSkill.id]?.xp ?? character.startingSkill.xp,
     },
-  };
-}
-
-function combineProgressionResults(
-  questResult: ProgressionResult,
-  bonusResults: ProgressionResult[],
-  state: ProgressionState,
-  events: ProgressionEvent[],
-): ProgressionResult {
-  return {
-    ...questResult,
-    state,
-    characterXpGained: questResult.characterXpGained +
-      bonusResults.reduce((total, result) => total + result.characterXpGained, 0),
-    characterTotalXp: state.totalXp,
-    currentCharacterLevel: state.level,
-    characterLevelUps: [
-      ...questResult.characterLevelUps,
-      ...bonusResults.flatMap((result) => result.characterLevelUps),
-    ],
-    currentRank: state.rank,
-    currentTitle: state.title,
-    newlyUnlockedTitles: [
-      ...questResult.newlyUnlockedTitles,
-      ...bonusResults.flatMap((result) => result.newlyUnlockedTitles),
-    ],
-    newlyEarnedUnlockTokens: questResult.newlyEarnedUnlockTokens +
-      bonusResults.reduce((total, result) => total + result.newlyEarnedUnlockTokens, 0),
-    events,
   };
 }
 
@@ -655,19 +575,18 @@ export function createQuestService() {
         throw new AppError(409, "MILESTONE_NOT_READY", "Complete all milestone quests first.");
       }
       const completedAt = new Date();
-      const completion = applyMilestoneAndGoalBonuses(
+      const completion = applyMilestoneBonus(
         engine,
         progressionState(character),
         milestones,
-        goals,
-        [milestoneId],
+        milestoneId,
         completedAt,
       );
       const nextCharacter: CharacterRecord = {
         ...plain,
         ...progressionCharacterFields(plain, completion.state),
         milestones: completion.milestones,
-        goals: completion.goals,
+        goals,
         progressionEvents: [...(plain.progressionEvents ?? []), ...completion.events],
         version: (character.version ?? 0) + 1,
         updatedAt: completedAt,
@@ -723,39 +642,17 @@ export function createQuestService() {
       const completedAt = new Date();
       const plainCharacter = toPlainCharacterRecord(character);
       const quests = (plainCharacter.quests ?? []).map((candidate) => candidate.id === questId ? { ...candidate, completed: true, completedAt } : candidate);
-      let milestones = normalizeLegacyMilestones(plainCharacter.milestones ?? []);
-      let goals = normalizeLegacyGoals(plainCharacter, milestones, quests);
+      const milestones = normalizeLegacyMilestones(plainCharacter.milestones ?? []);
+      const goals = normalizeLegacyGoals(plainCharacter, milestones, quests);
       const stats = applyQuestStats(plainCharacter.stats, quest);
-      const completion = applyMilestoneAndGoalBonuses(
-        engine,
-        result.state,
-        milestones,
-        goals,
-        readyMilestoneIds(milestones, quests),
-        completedAt,
-      );
-      milestones = completion.milestones;
-      goals = completion.goals;
-      const progressionEvents = [
-        ...(plainCharacter.progressionEvents ?? []),
-        ...result.events,
-        ...completion.events,
-      ];
-      const progressionStateAfterQuest = completion.state;
-      const progression = combineProgressionResults(
-        result,
-        completion.results,
-        progressionStateAfterQuest,
-        [...result.events, ...completion.events],
-      );
       const nextCharacter: CharacterRecord = {
         ...plainCharacter,
-        ...progressionCharacterFields(plainCharacter, progressionStateAfterQuest),
+        ...progressionCharacterFields(plainCharacter, result.state),
         stats,
         quests,
         milestones,
         goals,
-        progressionEvents,
+        progressionEvents: [...(plainCharacter.progressionEvents ?? []), ...result.events],
         version: (character.version ?? 0) + 1,
         updatedAt: completedAt,
       };
@@ -774,7 +671,7 @@ export function createQuestService() {
         }
         throw new AppError(409, "CONCURRENT_UPDATE", "The quest changed. Please retry.");
       }
-      return { alreadyCompleted: false, quest: quests.find((candidate) => candidate.id === questId), progression };
+      return { alreadyCompleted: false, quest: quests.find((candidate) => candidate.id === questId), progression: result };
     },
   };
 }
