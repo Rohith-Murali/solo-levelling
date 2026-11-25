@@ -163,7 +163,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   quests: _quests ?? const [],
                   goals: _goals ?? const [],
                   skills: data.skills,
-                  characterLevel: data.character.level,
                   onQuestComplete: _completeQuest,
                 ),
                 const SizedBox(height: 22),

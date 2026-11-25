@@ -5,14 +5,12 @@ class _ActiveQuestsSection extends StatelessWidget {
     required this.quests,
     required this.goals,
     required this.skills,
-    required this.characterLevel,
     required this.onQuestComplete,
   });
 
   final List<ProgressionQuest> quests;
   final List<ProgressionGoal> goals;
   final List<DashboardSkill> skills;
-  final int characterLevel;
   final Future<void> Function(String questId) onQuestComplete;
 
   @override
@@ -35,7 +33,6 @@ class _ActiveQuestsSection extends StatelessWidget {
         .where((q) => q.goalId == null)
         .take(2)
         .toList(growable: false);
-    final reward = 100 + (50 * (characterLevel - 1));
     String? skillName(ProgressionQuest quest) => skills
         .where((skill) => skill.id == quest.primarySkillId)
         .firstOrNull
@@ -62,7 +59,7 @@ class _ActiveQuestsSection extends StatelessWidget {
           for (final quest in items) ...[
             _QuestCard(
               quest: quest,
-              reward: reward,
+              reward: quest.characterXpReward,
               skillName: skillName(quest),
               onQuestComplete: onQuestComplete,
               showActions: false,
@@ -78,7 +75,7 @@ class _ActiveQuestsSection extends StatelessWidget {
                   ],
                   child: _QuestCard(
                     quest: quest,
-                    reward: reward,
+                    reward: quest.characterXpReward,
                     skillName: skillName(quest),
                     onQuestComplete: (questId) async {
                       Navigator.pop(context);

@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:solo_levelling/app/app.dart';
 import 'package:solo_levelling/app/theme/app_colors.dart';
 import 'package:solo_levelling/core/network/api_client.dart';
+import 'package:solo_levelling/core/navigation/navigation_config.dart';
 import 'package:solo_levelling/features/auth/application/auth_controller.dart';
 import 'package:solo_levelling/features/auth/domain/auth_repository.dart';
 import 'package:solo_levelling/features/auth/domain/auth_user.dart';
@@ -16,8 +17,26 @@ import 'package:solo_levelling/features/dashboard/domain/dashboard_data.dart';
 import 'package:solo_levelling/features/dashboard/domain/dashboard_repository.dart';
 import 'package:solo_levelling/features/progression/domain/progression_data.dart';
 import 'package:solo_levelling/features/progression/domain/progression_repository.dart';
+import 'package:solo_levelling/features/progression/presentation/quests_screen.dart';
 
 void main() {
+  test('primary destinations omit quests and preserve shell tab indices', () {
+    expect(primaryDestinations.map((destination) => destination.label), [
+      'Dashboard',
+      'Goals',
+      'Skills',
+      'Character',
+      'History',
+    ]);
+    expect(primaryDestinations.map((destination) => destination.tabIndex), [
+      0,
+      1,
+      3,
+      4,
+      5,
+    ]);
+  });
+
   test('resolves API paths below the configured base URI', () async {
     final mockClient = MockClient((request) async {
       expect(request.url.path, '/api/auth/login');
@@ -234,6 +253,7 @@ void main() {
     await tester.tap(find.text('Sign in'));
     await tester.pumpAndSettle();
 
+    expect(find.text('Quests'), findsNothing);
     await tester.tap(find.text('Goals'));
     await tester.pumpAndSettle();
     expect(find.text('GOALS'), findsOneWidget);
@@ -256,6 +276,191 @@ void main() {
     await tester.tap(find.text('Dashboard'));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('quest goal completion shows the earned XP notification', (
+    tester,
+  ) async {
+    final dashboardRepository = _FakeDashboardRepository();
+    final progressionRepository = _GoalCompletionProgressionRepository(
+      dashboardRepository,
+    );
+    progressionRepository.goals = const [
+      ProgressionGoal(
+        id: 'goal-1',
+        title: 'Finish portfolio',
+        description: '',
+        primarySkillId: '',
+        milestoneIds: ['milestone-1'],
+        completed: false,
+        status: 'ACTIVE',
+      ),
+    ];
+    progressionRepository.milestones = const [
+      ProgressionMilestone(
+        id: 'milestone-1',
+        title: 'Portfolio ready',
+        description: '',
+        questIds: [],
+        completed: true,
+      ),
+    ];
+    var dashboardRefreshed = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: QuestOverviewScreen(
+          repository: progressionRepository,
+          dashboardRepository: dashboardRepository,
+          accessToken: 'access-token',
+          isActive: true,
+          goalId: 'goal-1',
+          onDataChanged: () => dashboardRefreshed = true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Complete goal'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(
+      find.textContaining('GOAL COMPLETED\n\nFinish portfolio\n+25 XP'),
+      findsOneWidget,
+    );
+    expect(dashboardRefreshed, isFalse);
+
+    await tester.tap(find.text('ACKNOWLEDGE'));
+    await tester.pumpAndSettle();
+
+    expect(dashboardRefreshed, isTrue);
+  });
+
+  testWidgets('quest completion from a goal shows the earned XP notification', (
+    tester,
+  ) async {
+    final dashboardRepository = _FakeDashboardRepository();
+    final progressionRepository = _GoalCompletionProgressionRepository(
+      dashboardRepository,
+    );
+    progressionRepository.goals = const [
+      ProgressionGoal(
+        id: 'goal-1',
+        title: 'Finish portfolio',
+        description: '',
+        primarySkillId: '',
+        milestoneIds: [],
+        completed: false,
+        status: 'ACTIVE',
+      ),
+    ];
+    progressionRepository.quests = const [
+      ProgressionQuest(
+        id: 'quest-1',
+        title: 'Prepare demo',
+        description: 'Create a working demo.',
+        type: 'MAIN',
+        difficulty: 'EASY',
+        primarySkillId: null,
+        characterXpReward: 15,
+        goalId: 'goal-1',
+        completed: false,
+      ),
+    ];
+    var dashboardRefreshed = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: QuestOverviewScreen(
+          repository: progressionRepository,
+          dashboardRepository: dashboardRepository,
+          accessToken: 'access-token',
+          isActive: true,
+          goalId: 'goal-1',
+          onDataChanged: () => dashboardRefreshed = true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Prepare demo'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Complete quest'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(
+      find.textContaining('QUEST COMPLETED\n\nPrepare demo\n+15 XP'),
+      findsOneWidget,
+    );
+    expect(dashboardRefreshed, isFalse);
+
+    await tester.tap(find.text('ACKNOWLEDGE'));
+    await tester.pumpAndSettle();
+
+    expect(dashboardRefreshed, isTrue);
+  });
+
+  testWidgets('quest screen shows milestone and quest unlock notifications', (
+    tester,
+  ) async {
+    final dashboardRepository = _FakeDashboardRepository();
+    final progressionRepository = _GoalCompletionProgressionRepository(
+      dashboardRepository,
+    );
+    progressionRepository.goals = const [
+      ProgressionGoal(
+        id: 'goal-1',
+        title: 'Finish portfolio',
+        description: '',
+        primarySkillId: '',
+        milestoneIds: [],
+        completed: false,
+        status: 'ACTIVE',
+      ),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: QuestOverviewScreen(
+          repository: progressionRepository,
+          dashboardRepository: dashboardRepository,
+          accessToken: 'access-token',
+          isActive: true,
+          goalId: 'goal-1',
+          onDataChanged: () {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Add milestone'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Ship first release');
+    await tester.tap(find.text('Save'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(
+      find.textContaining('MILESTONE UNLOCKED\n\nShip first release'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('ACKNOWLEDGE'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Add quest'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Build the demo');
+    await tester.enterText(find.byType(TextField).at(1), 'Show the workflow.');
+    await tester.tap(find.text('Save'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(
+      find.textContaining('QUEST UNLOCKED\n\nBuild the demo'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('ACKNOWLEDGE'));
+    await tester.pumpAndSettle();
   });
 }
 
@@ -331,9 +536,11 @@ class _FakeCharacterRepository implements CharacterRepository {
 }
 
 class _FakeDashboardRepository implements DashboardRepository {
+  int totalXp = 0;
+
   @override
   Future<DashboardData> load(String accessToken) async {
-    return const DashboardData(
+    return DashboardData(
       character: DashboardCharacter(
         id: 'character-id',
         name: 'Hunter',
@@ -341,11 +548,11 @@ class _FakeDashboardRepository implements DashboardRepository {
         avatarImagePath: 'avatars/Avatar 1.png',
         title: 'Shadow Initiate',
         level: 1,
-        totalXp: 0,
+        totalXp: totalXp,
         currentLevelXp: 0,
         xpToNextLevel: 100,
         skillUnlockTokens: 0,
-        stats: DashboardStats(),
+        stats: const DashboardStats(),
       ),
       statistics: DashboardStatistics(
         completedQuestCount: 0,
@@ -380,6 +587,8 @@ class _FakeDashboardRepository implements DashboardRepository {
 
 class _FakeProgressionRepository implements ProgressionRepository {
   List<ProgressionQuest> quests = const [];
+  List<ProgressionGoal> goals = const [];
+  List<ProgressionMilestone> milestones = const [];
 
   @override
   Future<List<ProgressionQuest>> loadQuests(String accessToken) async => quests;
@@ -387,8 +596,8 @@ class _FakeProgressionRepository implements ProgressionRepository {
   @override
   Future<ProgressionStructure> loadStructure(String accessToken) async =>
       ProgressionStructure(
-        goals: const [],
-        milestones: const [],
+        goals: goals,
+        milestones: milestones,
         quests: quests,
       );
 
@@ -404,6 +613,7 @@ class _FakeProgressionRepository implements ProgressionRepository {
                   type: quest.type,
                   difficulty: quest.difficulty,
                   primarySkillId: quest.primarySkillId,
+                  characterXpReward: quest.characterXpReward,
                   completed: true,
                 )
               : quest,
@@ -530,4 +740,21 @@ class _FakeProgressionRepository implements ProgressionRepository {
     String? description,
     String? category,
   }) async {}
+}
+
+class _GoalCompletionProgressionRepository extends _FakeProgressionRepository {
+  _GoalCompletionProgressionRepository(this.dashboardRepository);
+
+  final _FakeDashboardRepository dashboardRepository;
+
+  @override
+  Future<void> completeQuest(String accessToken, String questId) async {
+    dashboardRepository.totalXp += 15;
+    await super.completeQuest(accessToken, questId);
+  }
+
+  @override
+  Future<void> completeGoal(String accessToken, String goalId) async {
+    dashboardRepository.totalXp += 25;
+  }
 }

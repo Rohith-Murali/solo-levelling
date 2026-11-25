@@ -8,6 +8,7 @@ class ProgressionQuest {
     required this.type,
     required this.difficulty,
     required this.primarySkillId,
+    required this.characterXpReward,
     this.goalId,
     this.milestoneId,
     this.statContributions = const [],
@@ -19,6 +20,7 @@ class ProgressionQuest {
   final String type;
   final String difficulty;
   final String? primarySkillId;
+  final int characterXpReward;
   final String? goalId;
   final String? milestoneId;
   final List<String> statContributions;
@@ -31,6 +33,7 @@ class ProgressionQuest {
     final type = json['type'];
     final difficulty = json['difficulty'];
     final primarySkillId = json['primarySkillId'];
+    final characterXpReward = json['characterXpReward'];
     final completed = json['completed'];
     if (id is! String ||
         title is! String ||
@@ -38,6 +41,7 @@ class ProgressionQuest {
         (type != 'MAIN' && type != 'SIDE') ||
         difficulty is! String ||
         (primarySkillId != null && primarySkillId is! String) ||
+        characterXpReward is! int ||
         completed is! bool) {
       throw const ApiException('The server returned invalid quest data.');
     }
@@ -48,6 +52,7 @@ class ProgressionQuest {
       type: type as String,
       difficulty: difficulty,
       primarySkillId: primarySkillId as String?,
+      characterXpReward: characterXpReward,
       goalId: json['goalId'] is String ? json['goalId'] as String : null,
       milestoneId: json['milestoneId'] is String
           ? json['milestoneId'] as String

@@ -24,6 +24,7 @@ void main() {
                     'type': 'MAIN',
                     'difficulty': 'EASY',
                     'primarySkillId': 'focus',
+                    'characterXpReward': 15,
                     'completed': false,
                   },
                 ],
@@ -42,7 +43,8 @@ void main() {
         ),
       );
 
-      await api.getQuests('token');
+      final quests = await api.getQuests('token');
+      expect(quests.single.characterXpReward, 15);
       await api.completeQuest('token', 'quest-1');
       mockClient.close();
     },

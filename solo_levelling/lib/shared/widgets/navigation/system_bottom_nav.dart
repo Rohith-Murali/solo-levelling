@@ -27,8 +27,8 @@ class SystemBottomNav extends StatelessWidget {
             Expanded(
               child: _NavItem(
                 config: primaryDestinations[index],
-                selected: index == selectedIndex,
-                onTap: () => onSelected(index),
+                selected: primaryDestinations[index].tabIndex == selectedIndex,
+                onTap: () => onSelected(primaryDestinations[index].tabIndex),
               ),
             ),
         ],

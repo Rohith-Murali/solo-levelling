@@ -7,6 +7,7 @@ import '../../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../../features/dashboard/presentation/activity_log_screen.dart';
 import '../../../features/dashboard/presentation/character_titles_screen.dart';
 import '../../../features/progression/presentation/goals_screen.dart';
+import '../../../features/progression/presentation/quests_screen.dart';
 import '../../../features/progression/presentation/skill_library_screen.dart';
 import '../../../features/progression/domain/progression_repository.dart';
 import 'system_bottom_nav.dart';
@@ -37,6 +38,7 @@ class _MainShellState extends State<MainShell> {
   int _dashboardRevision = 0;
   final Set<int> _visitedTabs = <int>{0};
   DashboardCharacter? _character;
+  String? _questGoalId;
 
   void _select(int index) {
     if (index != _selectedIndex) {
@@ -51,13 +53,25 @@ class _MainShellState extends State<MainShell> {
     setState(() => _dashboardRevision++);
   }
 
+  void _openQuestGoal(String goalId) {
+    setState(() {
+      _questGoalId = goalId;
+      _selectedIndex = 2;
+      _visitedTabs.add(2);
+    });
+  }
+
+  void _clearQuestGoal() {
+    setState(() => _questGoalId = null);
+  }
+
   @override
   Widget build(BuildContext context) {
     final accessToken = widget.accessTokenProvider();
     return Scaffold(
       appBar: SystemTopBar(
         character: _character,
-        onCharacterTap: () => _select(3),
+        onCharacterTap: () => _select(4),
       ),
       drawer: SystemDrawer(
         character: _character,
@@ -75,7 +89,7 @@ class _MainShellState extends State<MainShell> {
               repository: widget.repository,
               accessToken: accessToken,
               onCharacterRequired: widget.onCharacterRequired,
-              onViewActivity: () => _select(4),
+              onViewActivity: () => _select(5),
               onProgressionChanged: _refreshDashboard,
               progressionRepository: widget.progressionRepository,
               onCharacterLoaded: (character) =>
@@ -91,32 +105,45 @@ class _MainShellState extends State<MainShell> {
               accessToken: accessToken,
               isActive: _selectedIndex == 1,
               onDataChanged: _refreshDashboard,
+              onOpenQuest: _openQuestGoal,
             )
           else
             const SizedBox.shrink(),
           if (_visitedTabs.contains(2))
-            SkillLibraryScreen(
+            QuestOverviewScreen(
+              repository: widget.progressionRepository,
               dashboardRepository: widget.repository,
-              progressionRepository: widget.progressionRepository,
               accessToken: accessToken,
               isActive: _selectedIndex == 2,
               onDataChanged: _refreshDashboard,
+              goalId: _questGoalId,
+              onClearGoal: _clearQuestGoal,
             )
           else
             const SizedBox.shrink(),
           if (_visitedTabs.contains(3))
-            CharacterStatusScreen(
-              repository: widget.repository,
+            SkillLibraryScreen(
+              dashboardRepository: widget.repository,
+              progressionRepository: widget.progressionRepository,
               accessToken: accessToken,
               isActive: _selectedIndex == 3,
+              onDataChanged: _refreshDashboard,
             )
           else
             const SizedBox.shrink(),
           if (_visitedTabs.contains(4))
-            ActivityLogScreen(
+            CharacterStatusScreen(
               repository: widget.repository,
               accessToken: accessToken,
               isActive: _selectedIndex == 4,
+            )
+          else
+            const SizedBox.shrink(),
+          if (_visitedTabs.contains(5))
+            ActivityLogScreen(
+              repository: widget.repository,
+              accessToken: accessToken,
+              isActive: _selectedIndex == 5,
             )
           else
             const SizedBox.shrink(),

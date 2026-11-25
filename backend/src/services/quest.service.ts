@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { AppError } from "../errors/app-error.js";
-import { ProgressionEngine, type ProgressionEvent, type ProgressionState } from "../core/progression/index.js";
-import { resolveTitle } from "../core/progression/resolvers.js";
+import { defaultProgressionConfig, ProgressionEngine, type ProgressionEvent, type ProgressionState } from "../core/progression/index.js";
+import { characterXpReward, normalizeQuestDifficulty, resolveTitle } from "../core/progression/resolvers.js";
 import { User } from "../models/user.model.js";
 import type { CharacterRecord, CharacterStats, GoalRecord, MilestoneRecord, QuestRecord, SkillRecord } from "../models/user.model.js";
 import { toPlainCharacterRecord } from "./character-record.js";
@@ -12,6 +12,17 @@ function requireCharacter(user: { character?: CharacterRecord } | null): Charact
   if (!user) throw new AppError(401, "INVALID_ACCESS_TOKEN", "Your session is invalid or expired.");
   if (!user.character) throw new AppError(409, "CHARACTER_REQUIRED", "Create a character before managing quests.");
   return user.character;
+}
+
+function questRewards(character: CharacterRecord, quest: QuestRecord) {
+  const difficulty = normalizeQuestDifficulty(quest.difficulty);
+  const characterXp = characterXpReward(
+    defaultProgressionConfig.questBaseCharacterXp[difficulty],
+    character.level,
+    defaultProgressionConfig,
+  );
+  const skillXp = Math.round(characterXp * defaultProgressionConfig.skillXpMultiplier);
+  return { characterXpReward: characterXp, skillXpReward: skillXp };
 }
 
 function skillState(character: CharacterRecord): ProgressionState["skills"] {
@@ -550,7 +561,14 @@ export function createQuestService() {
       const plainCharacter = toPlainCharacterRecord(character);
       const quests = plainCharacter.quests ?? [];
       await User.updateOne({ _id: userId }, { $unset: { "character.quests.$[].objectives": "" } });
-      return { goals: plainCharacter.goals ?? [], milestones: plainCharacter.milestones ?? [], quests };
+      return {
+        goals: plainCharacter.goals ?? [],
+        milestones: plainCharacter.milestones ?? [],
+        quests: quests.map((quest) => ({
+          ...quest,
+          ...questRewards(character, quest),
+        })),
+      };
     },
 
     async completeMilestone(userId: string, goalId: string, milestoneId: string) {

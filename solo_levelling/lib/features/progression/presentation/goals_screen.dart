@@ -16,6 +16,7 @@ class GoalsScreen extends StatefulWidget {
     required this.accessToken,
     required this.isActive,
     required this.onDataChanged,
+    this.onOpenQuest,
     super.key,
   });
   final ProgressionRepository? repository;
@@ -23,13 +24,13 @@ class GoalsScreen extends StatefulWidget {
   final String? accessToken;
   final bool isActive;
   final VoidCallback onDataChanged;
+  final ValueChanged<String>? onOpenQuest;
   @override
   State<GoalsScreen> createState() => _GoalsScreenState();
 }
 
 class _GoalsScreenState extends State<GoalsScreen> {
   List<ProgressionGoal> _goals = const [];
-  List<ProgressionMilestone> _milestones = const [];
   List<ProgressionQuest> _quests = const [];
   bool _loading = true;
   DashboardData? _dashboard;
@@ -75,7 +76,6 @@ class _GoalsScreenState extends State<GoalsScreen> {
 
       setState(() {
         _goals = data.goals;
-        _milestones = data.milestones;
         _quests = data.quests;
         _dashboard = dashboard;
       });
@@ -171,398 +171,18 @@ class _GoalsScreenState extends State<GoalsScreen> {
   }
 
   Future<void> _openGoal(ProgressionGoal goal) async {
-    await showDialog<void>(
-      context: context,
-      builder: (_) => ValueListenableBuilder<int>(
-        valueListenable: _structureTick,
-        builder: (context, _, __) {
-          final current = _goals
-              .where((item) => item.id == goal.id)
-              .firstOrNull;
-          if (current == null) {
-            return HolographicDialog(
-              title: goal.title,
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Close'),
-                ),
-              ],
-              child: const Text('This goal is no longer available.'),
-            );
-          }
-          return _GoalDetailDialog(
-            goal: current,
-            milestones: _milestones
-                .where(
-                  (milestone) => current.milestoneIds.contains(milestone.id),
-                )
-                .toList(growable: false),
-            quests: _quests
-                .where((quest) => quest.goalId == current.id)
-                .toList(growable: false),
-            onEditMilestone: _editMilestone,
-            onDeleteMilestone: _deleteMilestone,
-            onAddMilestone: () => _addMilestone(current),
-            onAddQuest: () => _addQuest(current),
-            onEditQuest: (quest) => _editQuest(current, quest),
-            onDeleteQuest: (quest) => _deleteQuest(current, quest),
-            onCompleteQuest: _completeQuest,
-            onCompleteMilestone: _completeMilestone,
-            onCompleteGoal: _completeGoal,
-          );
-        },
-      ),
-    );
+    widget.onOpenQuest?.call(goal.id);
   }
 
-  Future<void> _editMilestone(ProgressionMilestone milestone) async {
-    final input = await showDialog<_PairInput>(
-      context: context,
-      builder: (_) => _PairDialog(
-        title: 'Edit milestone',
-        firstLabel: 'Milestone title',
-        secondLabel: 'Description',
-        first: milestone.title,
-        second: milestone.description,
-      ),
-    );
-    if (!mounted) return;
-    final repo = widget.repository;
-    final token = widget.accessToken;
-    if (input == null || repo == null || token == null) return;
-    final goal = _goals.firstWhere(
-      (item) => item.milestoneIds.contains(milestone.id),
-    );
-    await repo.updateMilestone(
-      token,
-      goalId: goal.id,
-      milestoneId: milestone.id,
-      title: input.first,
-      description: input.second,
-    );
-    await _load();
-    if (!mounted) return;
-    widget.onDataChanged();
-    if (!mounted) return;
-    Navigator.of(context).pop();
-  }
 
-  Future<void> _addMilestone(ProgressionGoal goal) async {
-    final input = await showDialog<_PairInput>(
-      context: context,
-      builder: (_) => const _PairDialog(
-        title: 'Add milestone',
-        firstLabel: 'Milestone title',
-        secondLabel: 'Description',
-      ),
-    );
-    if (!mounted) return;
-    final repo = widget.repository;
-    final token = widget.accessToken;
-    if (input == null || repo == null || token == null) return;
-    await repo.createMilestone(
-      token,
-      goalId: goal.id,
-      title: input.first,
-      description: input.second,
-    );
-    await _load();
-    if (!mounted) return;
-    await SystemNotification.show(
-      context,
-      icon: Icons.flag_outlined,
-      message: 'MILESTONE UNLOCKED\n\n${input.first}',
-    );
-    if (!mounted) return;
-    widget.onDataChanged();
-  }
 
-  Future<void> _deleteMilestone(ProgressionMilestone milestone) async {
-    final ok = await _confirm(
-      'Delete milestone',
-      'Delete “${milestone.title}”?',
-    );
-    if (!mounted) return;
-    final repo = widget.repository;
-    final token = widget.accessToken;
-    if (!ok || repo == null || token == null) return;
-    final goal = _goals.firstWhere(
-      (item) => item.milestoneIds.contains(milestone.id),
-    );
-    await repo.deleteMilestone(token, goal.id, milestone.id);
-    await _load();
-    if (!mounted) return;
-    widget.onDataChanged();
-    if (!mounted) return;
-    Navigator.of(context).pop();
-  }
 
-  Future<void> _editQuest(ProgressionGoal goal, ProgressionQuest quest) async {
-    final goalMilestones = _milestones
-        .where((milestone) => goal.milestoneIds.contains(milestone.id))
-        .toList(growable: false);
-    final input = await showDialog<_QuestInput>(
-      context: context,
-      builder: (_) => _QuestDialog(quest: quest, milestones: goalMilestones),
-    );
-    if (!mounted) return;
-    final repo = widget.repository;
-    final token = widget.accessToken;
-    if (input == null || repo == null || token == null) return;
-    await repo.updateGoalQuest(
-      token,
-      goalId: goal.id,
-      questId: quest.id,
-      title: input.title,
-      description: input.description,
-      difficulty: input.difficulty,
-      milestoneId: input.milestoneId,
-      statContributions: quest.statContributions,
-    );
-    await _load();
-    if (!mounted) return;
-    widget.onDataChanged();
-    if (!mounted) return;
-    Navigator.of(context).pop();
-  }
 
-  Future<void> _addQuest(ProgressionGoal goal) async {
-    final goalMilestones = _milestones
-        .where((milestone) => goal.milestoneIds.contains(milestone.id))
-        .toList(growable: false);
-    final input = await showDialog<_QuestInput>(
-      context: context,
-      builder: (_) => _QuestDialog(milestones: goalMilestones),
-    );
-    if (!mounted) return;
-    final repo = widget.repository;
-    final token = widget.accessToken;
-    if (input == null || repo == null || token == null) return;
-    try {
-      await repo.createGoalQuest(
-        token,
-        goalId: goal.id,
-        title: input.title,
-        description: input.description,
-        difficulty: input.difficulty,
-        milestoneId: input.milestoneId,
-      );
-      await _load();
-      if (!mounted) return;
-      await SystemNotification.show(
-        context,
-        icon: Icons.add_task,
-        message: 'QUEST UNLOCKED\n\n${input.title}',
-      );
-      if (!mounted) return;
-      widget.onDataChanged();
-    } on ApiException catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(error.message)));
-      }
-    }
-  }
 
-  Future<void> _deleteQuest(
-    ProgressionGoal goal,
-    ProgressionQuest quest,
-  ) async {
-    final ok = await _confirm('Delete quest', 'Delete “${quest.title}”?');
-    if (!mounted) return;
-    final repo = widget.repository;
-    final token = widget.accessToken;
-    if (!ok || repo == null || token == null) return;
-    await repo.deleteGoalQuest(token, goal.id, quest.id);
-    await _load();
-    if (!mounted) return;
-    widget.onDataChanged();
-    if (!mounted) return;
-    Navigator.of(context).pop();
-  }
 
-  Future<void> _completeQuest(ProgressionQuest quest) async {
-    final repo = widget.repository;
-    final token = widget.accessToken;
-    if (repo == null || token == null) return;
-    final before = _dashboard;
-    try {
-      await repo.completeQuest(token, quest.id);
-      await _load();
-      if (!mounted) return;
-      final after = _dashboard;
-      if (after == null) return;
-      final xp = before == null
-          ? 0
-          : (after.character.totalXp - before.character.totalXp).clamp(
-              0,
-              1 << 30,
-            );
-      final notifications = <SystemNotificationData>[
-        SystemNotificationData(
-          icon: Icons.check_circle_outline,
-          message: 'QUEST COMPLETED\n\n+$xp XP EARNED',
-        ),
-      ];
-      final previousActivityIds = {
-        for (final activity in before?.recentActivity ?? const []) activity.id,
-      };
-      final characterLevelledUp = after.recentActivity.any(
-        (activity) =>
-            !previousActivityIds.contains(activity.id) &&
-            activity.type == 'CHARACTER_LEVEL_INCREASED',
-      );
-      if (characterLevelledUp ||
-          (before != null && after.character.level > before.character.level)) {
-        final levelsGained = before == null
-            ? 1
-            : after.character.level - before.character.level;
-        notifications.add(
-          SystemNotificationData(
-            icon: Icons.trending_up,
-            message: before != null && levelsGained > 1
-                ? 'LEVELLED UP\n\nLV ${before.character.level} -> ${after.character.level} (+$levelsGained)'
-                : 'LEVELLED UP\n\nLV ${after.character.level}',
-          ),
-        );
-      }
-      if (before != null) {
-        final tokensEarned =
-            after.character.skillUnlockTokens -
-            before.character.skillUnlockTokens;
-        if (tokensEarned > 0) {
-          notifications.add(
-            SystemNotificationData(
-              icon: Icons.token_outlined,
-              message:
-                  '$tokensEarned SKILL UNLOCK TOKEN${tokensEarned == 1 ? '' : 'S'} EARNED',
-            ),
-          );
-        }
-        final oldSkills = {for (final skill in before.skills) skill.id: skill};
-        for (final skill in after.skills) {
-          final oldSkill = oldSkills[skill.id];
-          final skillXpGained = (skill.totalXp - (oldSkill?.totalXp ?? 0))
-              .clamp(0, 1 << 30);
-          if (skillXpGained > 0) {
-            notifications.add(
-              SystemNotificationData(
-                icon: Icons.auto_awesome,
-                message:
-                    '${skill.name.toUpperCase()}\n+$skillXpGained SKILL XP',
-              ),
-            );
-          }
-          final skillLevelledUp = after.recentActivity.any(
-            (activity) =>
-                !previousActivityIds.contains(activity.id) &&
-                activity.type == 'SKILL_LEVEL_INCREASED' &&
-                activity.relatedEntityId == skill.id,
-          );
-          if (skillLevelledUp ||
-              (oldSkill != null && skill.level > oldSkill.level)) {
-            notifications.add(
-              SystemNotificationData(
-                icon: Icons.auto_awesome,
-                message: oldSkill != null && skill.level - oldSkill.level > 1
-                    ? 'SKILL ${skill.name.toUpperCase()} LEVELLED UP\n\nLV ${oldSkill.level} -> ${skill.level}'
-                    : 'SKILL ${skill.name.toUpperCase()} LEVELLED UP\n\nLV ${skill.level}',
-              ),
-            );
-          }
-        }
-      }
-      await SystemNotification.showStack(context, notifications);
-      if (!mounted) return;
-      widget.onDataChanged();
-    } on ApiException catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(error.message)));
-      }
-    }
-  }
 
-  Future<void> _completeMilestone(
-    ProgressionGoal goal,
-    ProgressionMilestone milestone,
-  ) async {
-    final repo = widget.repository;
-    final token = widget.accessToken;
-    if (repo == null || token == null) return;
-    final before = _dashboard;
-    try {
-      await repo.completeMilestone(token, goal.id, milestone.id);
-      await _load();
-      if (!mounted) return;
-      final gainedXp =
-          ((_dashboard?.character.totalXp ?? 0) -
-                  (before?.character.totalXp ?? 0))
-              .clamp(0, 1 << 30);
-      await SystemNotification.show(
-        context,
-        icon: Icons.flag,
-        message: 'MILESTONE COMPLETED\n\n${milestone.title}\n+$gainedXp XP',
-      );
-      if (!mounted) return;
-      widget.onDataChanged();
-    } on ApiException catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(error.message)));
-      }
-    }
-  }
 
-  Future<void> _completeGoal(ProgressionGoal goal) async {
-    final repo = widget.repository;
-    final token = widget.accessToken;
-    if (repo == null || token == null) return;
-    final before = _dashboard;
-    try {
-      await repo.completeGoal(token, goal.id);
-      await _load();
-      if (!mounted) return;
-      final gainedXp =
-          ((_dashboard?.character.totalXp ?? 0) -
-                  (before?.character.totalXp ?? 0))
-              .clamp(0, 1 << 30);
-      await SystemNotification.show(
-        context,
-        icon: Icons.emoji_events,
-        message: 'GOAL COMPLETED\n\n${goal.title}\n+$gainedXp XP',
-      );
-      if (!mounted) return;
-      Navigator.of(context).pop();
-      widget.onDataChanged();
-    } on ApiException catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(error.message)));
-      }
-    }
-  }
 
-  Future<bool> _confirm(String title, String message) async =>
-      await showDialog<bool>(
-        context: context,
-        builder: (_) => HolographicDialog(
-          title: title,
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Delete'),
-            ),
-          ],
-          child: Text(message),
-        ),
-      ) ??
-      false;
 
   @override
   Widget build(BuildContext context) => RefreshIndicator(
@@ -895,9 +515,7 @@ class _PairDialog extends StatefulWidget {
     required this.title,
     required this.firstLabel,
     required this.secondLabel,
-    this.first,
-    this.second,
-  });
+  }) : first = null, second = null;
   final String title, firstLabel, secondLabel;
   final String? first, second;
   @override
@@ -967,7 +585,7 @@ class _QuestInput {
 }
 
 class _QuestDialog extends StatefulWidget {
-  const _QuestDialog({this.quest, required this.milestones});
+  const _QuestDialog({required this.milestones}) : quest = null;
   final ProgressionQuest? quest;
   final List<ProgressionMilestone> milestones;
   @override

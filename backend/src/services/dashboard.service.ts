@@ -1,8 +1,7 @@
 import { AppError } from "../errors/app-error.js";
 import { defaultProgressionConfig } from "../core/progression/config.js";
 import type { XpTransaction } from "../core/progression/models.js";
-import { xpForLevel } from "../core/progression/resolvers.js";
-import { resolveTitle } from "../core/progression/resolvers.js";
+import { characterXpReward, normalizeQuestDifficulty, resolveTitle, xpForLevel } from "../core/progression/resolvers.js";
 import { User } from "../models/user.model.js";
 import type { CharacterRecord, ProgressionEventRecord } from "../models/user.model.js";
 import { characterAvatars } from "./character-catalog.js";
@@ -158,7 +157,31 @@ function toDashboard(character: CharacterRecord) {
       completedGoalCount: character.goals?.filter((goal) => goal.completed).length ?? 0,
       completedMilestoneCount: character.milestones?.filter((milestone) => milestone.completed).length ?? 0,
     },
-    activeQuests: [],
+    activeQuests: (character.quests ?? [])
+      .filter((quest) => !quest.completed)
+      .map((quest) => {
+        const difficulty = normalizeQuestDifficulty(quest.difficulty);
+        const characterXp = characterXpReward(
+          defaultProgressionConfig.questBaseCharacterXp[difficulty],
+          character.level,
+          defaultProgressionConfig,
+        );
+        const skill = quest.primarySkillId
+          ? (character.skills?.find((candidate) => candidate.id === quest.primarySkillId)
+            ?? (character.startingSkill.id === quest.primarySkillId ? character.startingSkill : undefined))
+          : undefined;
+        return {
+          id: quest.id,
+          title: quest.title,
+          type: quest.type,
+          difficulty: quest.difficulty,
+          characterXpReward: characterXp,
+          primarySkillName: skill?.name ?? null,
+          skillXpReward: quest.primarySkillId
+            ? Math.round(characterXp * defaultProgressionConfig.skillXpMultiplier)
+            : null,
+        };
+      }),
     titleTiers: defaultProgressionConfig.titles.map((title, index, titles) => ({
       name: title.name,
       minimumLevel: title.minimumLevel,

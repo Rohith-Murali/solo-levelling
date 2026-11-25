@@ -34,7 +34,7 @@ class SystemDrawer extends StatelessWidget {
             InkWell(
               onTap: () {
                 Navigator.pop(context);
-                onPrimarySelected(3);
+                onPrimarySelected(4);
               },
               child: Container(
                 padding: const EdgeInsets.fromLTRB(20, 26, 20, 20),
@@ -58,9 +58,7 @@ class SystemDrawer extends StatelessWidget {
                       style: const TextStyle(color: AppColors.textSecondary),
                     ),
                     Text(
-                      data == null
-                          ? 'Synchronizing status'
-                          : data.title,
+                      data == null ? 'Synchronizing status' : data.title,
                       style: const TextStyle(color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 14),
@@ -98,11 +96,11 @@ class SystemDrawer extends StatelessWidget {
               ListTile(
                 leading: Icon(primaryDestinations[index].icon),
                 title: Text(primaryDestinations[index].drawerLabel),
-                selected: index == selectedIndex,
+                selected: primaryDestinations[index].tabIndex == selectedIndex,
                 selectedColor: AppColors.accent,
                 onTap: () {
                   Navigator.pop(context);
-                  onPrimarySelected(index);
+                  onPrimarySelected(primaryDestinations[index].tabIndex);
                 },
               ),
             const Padding(
