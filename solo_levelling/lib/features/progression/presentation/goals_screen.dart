@@ -1076,14 +1076,6 @@ class _GoalDetailDialogState extends State<_GoalDetailDialog> {
               onChanged: (value) =>
                   setState(() => _filter = value ?? _GoalFilter.active),
             ),
-            const Spacer(),
-            if (!widget.goal.completed &&
-                widget.milestones.isNotEmpty &&
-                widget.milestones.every((milestone) => milestone.completed))
-              FilledButton(
-                onPressed: () => widget.onCompleteGoal(widget.goal),
-                child: const Text('Complete goal'),
-              ),
           ],
         ),
         const SizedBox(height: 12),
@@ -1139,7 +1131,7 @@ class _GoalDetailDialogState extends State<_GoalDetailDialog> {
         )) ...[
           const SizedBox(height: 12),
           const Text(
-            'UNLINKED QUESTS',
+            'SIDE QUESTS',
             style: TextStyle(
               color: AppColors.accent,
               fontWeight: FontWeight.w800,
@@ -1156,6 +1148,25 @@ class _GoalDetailDialogState extends State<_GoalDetailDialog> {
               onComplete: () => widget.onCompleteQuest(quest),
             ),
         ],
+        if (!widget.goal.completed &&
+            widget.milestones.isNotEmpty &&
+            widget.milestones.every((milestone) => milestone.completed) &&
+            widget.quests.every((quest) => quest.completed))
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(0, 32),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                visualDensity: const VisualDensity(
+                  horizontal: -3,
+                  vertical: -3,
+                ),
+              ),
+              onPressed: () => widget.onCompleteGoal(widget.goal),
+              child: const Text('Complete goal'),
+            ),
+          ),
       ],
     ),
   );
