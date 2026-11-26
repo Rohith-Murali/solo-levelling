@@ -152,9 +152,7 @@ class _QuestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final progress = quest.completed ? 1.0 : 0.0;
     final type = quest.type == 'MAIN' ? 'MAIN QUEST' : 'SIDE QUEST';
-
     final card = Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
@@ -182,7 +180,7 @@ class _QuestCard extends StatelessWidget {
                 type,
                 style: const TextStyle(
                   color: AppColors.accent,
-                  fontSize: 10,
+                  fontSize: 8,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1,
                 ),
@@ -190,32 +188,32 @@ class _QuestCard extends StatelessWidget {
               const Spacer(),
               Text(
                 quest.difficulty,
-                style: const TextStyle(color: AppColors.textSecondary),
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 10,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 5),
-          Text(
-            quest.title,
-            style: Theme.of(context).textTheme.titleMedium
-                ?.copyWith(fontWeight: FontWeight.w700),
+          const SizedBox(height: 2),
+          Row(
+            children: [
+              Text(
+                quest.title,
+                style: Theme.of(context).textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const Spacer(),
+              Text(
+                quest.completed ? 'COMPLETED' : 'ACTIVE',
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 10,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 7),
-          LinearProgressIndicator(
-            value: progress,
-            minHeight: 4,
-            backgroundColor: AppColors.surfaceElevated,
-            color: AppColors.primaryGlow,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            quest.completed ? 'COMPLETED' : 'ACTIVE',
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 2),
           Wrap(
             spacing: 12,
             runSpacing: 4,
@@ -225,6 +223,7 @@ class _QuestCard extends StatelessWidget {
                 _RewardLabel(icon: Icons.auto_awesome, text: skillName!),
             ],
           ),
+          const SizedBox(height: 4),
           if (showActions && !quest.completed)
             Align(
               alignment: Alignment.centerRight,
@@ -240,7 +239,7 @@ class _QuestCard extends StatelessWidget {
         ? card
         : InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
             child: card,
           );
   }

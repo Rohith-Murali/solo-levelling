@@ -66,14 +66,14 @@ class _QuestsScreenState extends State<QuestsScreen> {
         .toList(growable: false);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.goal.title),
-        leading: IconButton(
-          tooltip: 'Back',
-          onPressed: widget.onBack ?? () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back),
-        ),
-      ),
+      // appBar: AppBar(
+      //   title: Text(widget.goal.title),
+      //   leading: IconButton(
+      //     tooltip: 'Back',
+      //     onPressed: widget.onBack ?? () => Navigator.pop(context),
+      //     icon: const Icon(Icons.arrow_back),
+      //   ),
+      // ),
       body: RefreshIndicator(
         onRefresh: widget.onRefresh,
         child: ListView(
@@ -237,6 +237,7 @@ class _QuestsScreenState extends State<QuestsScreen> {
               ))
                 _QuestCard(
                   quest: quest,
+                  reward: quest.characterXpReward,
                   onEdit: () => widget.onEditQuest(quest),
                   onDelete: () => widget.onDeleteQuest(quest),
                   onComplete: () => widget.onCompleteQuest(quest),
@@ -319,7 +320,7 @@ class _MilestoneCard extends StatelessWidget {
             if (milestone.completed)
               Container(
                 margin: const EdgeInsets.only(right: 6),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 1, vertical: 1),
                 decoration: BoxDecoration(
                   color: Colors.greenAccent.withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(12),
@@ -329,30 +330,12 @@ class _MilestoneCard extends StatelessWidget {
                   'COMPLETED',
                   style: TextStyle(
                     color: Colors.greenAccent,
-                    fontSize: 9,
+                    fontSize: 8,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.7,
                   ),
                 ),
               ),
-            IconButton(
-              tooltip: 'Edit milestone',
-              onPressed: onEdit,
-              icon: const Icon(
-                Icons.edit_outlined,
-                size: 16,
-                color: AppColors.accent,
-              ),
-            ),
-            IconButton(
-              tooltip: 'Delete milestone',
-              onPressed: onDelete,
-              icon: const Icon(
-                Icons.delete_outline,
-                size: 16,
-                color: Colors.redAccent,
-              ),
-            ),
           ],
         ),
         if (milestone.description.isNotEmpty)
@@ -363,21 +346,54 @@ class _MilestoneCard extends StatelessWidget {
               fontSize: 12,
             ),
           ),
-        if (canComplete)
-          TextButton.icon(
-            onPressed: onCompleteMilestone,
-            icon: const Icon(Icons.check, size: 14),
-            label: const Text('Complete milestone'),
-          ),
+
         for (final quest in quests) ...[
           const SizedBox(height: 8),
           _QuestCard(
             quest: quest,
+            reward: quest.characterXpReward,
             onEdit: () => onEditQuest(quest),
             onDelete: () => onDeleteQuest(quest),
             onComplete: () => onCompleteQuest(quest),
           ),
         ],
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            if (canComplete) 
+            Align(
+              child: FilledButton(
+                onPressed: onCompleteMilestone,
+                child: const Text('Complete milestone'),
+              ),
+            ),
+            const Spacer(),
+            Align(
+              child: Row(
+                children: [
+                  IconButton(
+                    tooltip: 'Edit milestone',
+                    onPressed: onEdit,
+                    icon: const Icon(
+                      Icons.edit_outlined,
+                      size: 16,
+                      color: AppColors.accent,
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Delete milestone',
+                    onPressed: onDelete,
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      size: 16,
+                      color: Colors.redAccent,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ],
     ),
   );
@@ -389,9 +405,11 @@ class _QuestCard extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     required this.onComplete,
+    required this.reward,
   });
 
   final ProgressionQuest quest;
+  final int reward;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final Future<void> Function() onComplete;
@@ -408,18 +426,27 @@ class _QuestCard extends StatelessWidget {
     child: InkWell(
       onTap: () => showDialog<void>(
         context: context,
-        builder: (_) => HolographicDialog(
+        builder: (dialogContext) => HolographicDialog(
           title: 'Quest details',
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text('Close'),
             ),
           ],
           child: _QuestDetails(
             quest: quest,
+            reward: reward,
+            onEdit: () {
+              Navigator.pop(dialogContext);
+              onEdit();
+            },
+            onDelete: () {
+              Navigator.pop(dialogContext);
+              onDelete();
+            },
             onComplete: () async {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
               await onComplete();
             },
           ),
@@ -437,8 +464,8 @@ class _QuestCard extends StatelessWidget {
                   quest.type == 'MAIN' ? 'MAIN QUEST' : 'SIDE QUEST',
                   style: const TextStyle(
                     color: AppColors.accent,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 8,
+                    fontWeight: FontWeight.w700,
                     letterSpacing: 1,
                   ),
                 ),
@@ -447,42 +474,148 @@ class _QuestCard extends StatelessWidget {
                   quest.difficulty,
                   style: const TextStyle(
                     color: AppColors.textSecondary,
-                    fontSize: 11,
+                    fontSize: 10,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 2),
+            Row(
+              children: [
+                Text(
+                  quest.title,
+                  style: Theme.of(context).textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const Spacer(),
+                Text(
+                  quest.completed ? 'COMPLETED' : 'ACTIVE',
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 10,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Wrap(
+              spacing: 12,
+              runSpacing: 4,
+              children: [
+                _RewardLabel(icon: Icons.bolt, text: '+$reward XP'),
+                if (quest.primarySkillName != null)
+                  _RewardLabel(
+                    icon: Icons.auto_awesome,
+                    text: quest.primarySkillName!,
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _QuestDetails extends StatelessWidget {
+  const _QuestDetails({
+    required this.quest,
+    required this.onComplete,
+    required this.reward,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final ProgressionQuest quest;
+  final Future<void> Function() onComplete;
+  final int reward;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      gradient: const LinearGradient(
+        colors: [Color(0xAA12345A), Color(0x66050B18)],
+      ),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: AppColors.primaryGlow),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Text(
+              quest.type == 'MAIN' ? 'MAIN QUEST' : 'SIDE QUEST',
+              style: const TextStyle(
+                color: AppColors.accent,
+                fontSize: 8,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              quest.difficulty,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 10,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 3),
+        Text(
+          quest.description.isEmpty ? 'No description.' : quest.description,
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+        ),
+        const SizedBox(height: 3),
+        Row(
+          children: [
             Text(
               quest.title,
               style: Theme.of(context).textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w800),
+                  ?.copyWith(fontWeight: FontWeight.w700),
             ),
-            const SizedBox(height: 7),
-            LinearProgressIndicator(
-              value: quest.completed ? 1 : 0,
-              minHeight: 4,
-              backgroundColor: AppColors.surfaceElevated,
-              color: AppColors.primaryGlow,
-            ),
-            const SizedBox(height: 4),
+            const Spacer(),
             Text(
               quest.completed ? 'COMPLETED' : 'ACTIVE',
               style: const TextStyle(
                 color: AppColors.textSecondary,
-                fontSize: 12,
+                fontSize: 10,
               ),
             ),
-            const SizedBox(height: 6),
-            Text(
-              '+${quest.characterXpReward} XP',
-              style: const TextStyle(
-                color: AppColors.accent,
-                fontWeight: FontWeight.w700,
+          ],
+        ),
+        const SizedBox(height: 2),
+        Wrap(
+          spacing: 12,
+          runSpacing: 4,
+          children: [
+            _RewardLabel(icon: Icons.bolt, text: '+$reward XP'),
+            if (quest.primarySkillName != null)
+              _RewardLabel(
+                icon: Icons.auto_awesome,
+                text: quest.primarySkillName!,
               ),
-            ),
+          ],
+        ),
+
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            if (!quest.completed) ...[
+              const SizedBox(height: 4),
+              Align(
+                child: FilledButton(
+                  onPressed: onComplete,
+                  child: const Text('Complete quest'),
+                ),
+              ),
+            ],
             Align(
-              alignment: Alignment.centerRight,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -509,53 +642,29 @@ class _QuestCard extends StatelessWidget {
             ),
           ],
         ),
-      ),
+      ],
     ),
   );
 }
 
-class _QuestDetails extends StatelessWidget {
-  const _QuestDetails({required this.quest, required this.onComplete});
+class _RewardLabel extends StatelessWidget {
+  const _RewardLabel({required this.icon, required this.text});
 
-  final ProgressionQuest quest;
-  final Future<void> Function() onComplete;
+  final IconData icon;
+  final String text;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      gradient: const LinearGradient(
-        colors: [Color(0xAA12345A), Color(0x66050B18)],
-      ),
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: AppColors.primaryGlow),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
+        Icon(icon, color: AppColors.accent, size: 15),
+        const SizedBox(width: 4),
         Text(
-          quest.description.isEmpty ? 'No description.' : quest.description,
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+          text,
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
         ),
-        const SizedBox(height: 10),
-        Text(
-          '+${quest.characterXpReward} XP',
-          style: const TextStyle(
-            color: AppColors.accent,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        if (!quest.completed) ...[
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerRight,
-            child: FilledButton(
-              onPressed: onComplete,
-              child: const Text('Complete quest'),
-            ),
-          ),
-        ],
       ],
-    ),
-  );
+    );
+  }
 }

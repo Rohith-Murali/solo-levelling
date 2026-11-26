@@ -9,6 +9,8 @@ class ProgressionQuest {
     required this.difficulty,
     required this.primarySkillId,
     required this.characterXpReward,
+    this.primarySkillName,
+    this.skillXpReward,
     this.goalId,
     this.milestoneId,
     this.statContributions = const [],
@@ -21,6 +23,8 @@ class ProgressionQuest {
   final String difficulty;
   final String? primarySkillId;
   final int characterXpReward;
+  final String? primarySkillName;
+  final int? skillXpReward;
   final String? goalId;
   final String? milestoneId;
   final List<String> statContributions;
@@ -34,6 +38,8 @@ class ProgressionQuest {
     final difficulty = json['difficulty'];
     final primarySkillId = json['primarySkillId'];
     final characterXpReward = json['characterXpReward'];
+    final primarySkillName = json['primarySkillName'];
+    final skillXpReward = json['skillXpReward'];
     final completed = json['completed'];
     if (id is! String ||
         title is! String ||
@@ -42,6 +48,8 @@ class ProgressionQuest {
         difficulty is! String ||
         (primarySkillId != null && primarySkillId is! String) ||
         characterXpReward is! int ||
+        (primarySkillName != null && primarySkillName is! String) ||
+        (skillXpReward != null && skillXpReward is! int) ||
         completed is! bool) {
       throw const ApiException('The server returned invalid quest data.');
     }
@@ -53,6 +61,8 @@ class ProgressionQuest {
       difficulty: difficulty,
       primarySkillId: primarySkillId as String?,
       characterXpReward: characterXpReward,
+      primarySkillName: primarySkillName as String?,
+      skillXpReward: skillXpReward as int?,
       goalId: json['goalId'] is String ? json['goalId'] as String : null,
       milestoneId: json['milestoneId'] is String
           ? json['milestoneId'] as String

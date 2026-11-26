@@ -3,7 +3,8 @@ import 'package:material_ui/material_ui.dart';
 import '../../app/theme/app_colors.dart';
 
 class HolographicDialog extends StatelessWidget {
-  const HolographicDialog({super.key, 
+  const HolographicDialog({
+    super.key,
     required this.title,
     required this.child,
     this.actions,
@@ -40,8 +41,14 @@ class HolographicDialog extends StatelessWidget {
           ),
         ],
       ),
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(compact ? 14 : 20, compact ? 12 : 18, compact ? 14 : 20, compact ? 8 : 14),
+      // child: Padding(
+      //   padding: EdgeInsets.fromLTRB(
+      //     compact ? 14 : 20,
+      //     compact ? 12 : 18,
+      //     compact ? 14 : 20,
+      //     compact ? 8 : 14,
+      //   ),
+      padding: const EdgeInsets.all(10),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -76,6 +83,6 @@ class HolographicDialog extends StatelessWidget {
           ],
         ),
       ),
-    ),
+    // ),
   );
 }
