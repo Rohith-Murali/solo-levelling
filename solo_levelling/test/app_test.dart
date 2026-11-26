@@ -17,6 +17,7 @@ import 'package:solo_levelling/features/dashboard/domain/dashboard_data.dart';
 import 'package:solo_levelling/features/dashboard/domain/dashboard_repository.dart';
 import 'package:solo_levelling/features/progression/domain/progression_data.dart';
 import 'package:solo_levelling/features/progression/domain/progression_repository.dart';
+import 'package:solo_levelling/features/progression/presentation/goals_screen.dart';
 
 void main() {
   test('primary destinations omit quests and preserve shell tab indices', () {
@@ -306,6 +307,28 @@ void main() {
     ];
     var dashboardRefreshed = false;
 
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GoalsScreen(
+          repository: progressionRepository,
+          dashboardRepository: dashboardRepository,
+          accessToken: 'access-token',
+          isActive: true,
+          onDataChanged: () => dashboardRefreshed = true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Finish portfolio'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Back'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+    expect(find.text('ACTIVE GOALS'), findsOneWidget);
+
+    await tester.tap(find.text('Finish portfolio'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Complete goal'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
@@ -319,6 +342,8 @@ void main() {
     await tester.tap(find.text('ACKNOWLEDGE'));
     await tester.pumpAndSettle();
 
+    expect(find.text('COMPLETED GOALS'), findsOneWidget);
+    expect(find.text('Complete goal'), findsNothing);
     expect(dashboardRefreshed, isTrue);
   });
 
@@ -713,5 +738,21 @@ class _GoalCompletionProgressionRepository extends _FakeProgressionRepository {
   @override
   Future<void> completeGoal(String accessToken, String goalId) async {
     dashboardRepository.totalXp += 25;
+    goals = goals
+        .map(
+          (goal) => goal.id == goalId
+              ? ProgressionGoal(
+                  id: goal.id,
+                  title: goal.title,
+                  description: goal.description,
+                  primarySkillId: goal.primarySkillId,
+                  statContributions: goal.statContributions,
+                  milestoneIds: goal.milestoneIds,
+                  completed: true,
+                  status: 'COMPLETED',
+                )
+              : goal,
+        )
+        .toList(growable: false);
   }
 }

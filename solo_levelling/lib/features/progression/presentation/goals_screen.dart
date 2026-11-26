@@ -588,6 +588,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
       notificationTitle: 'GOAL COMPLETED',
       icon: Icons.emoji_events,
       complete: () => repo.completeGoal(token, goal.id),
+      returnToGoalList: true,
     );
   }
 
@@ -597,12 +598,16 @@ class _GoalsScreenState extends State<GoalsScreen> {
     required String notificationTitle,
     required IconData icon,
     required Future<void> Function() complete,
+    bool returnToGoalList = false,
   }) async {
     try {
       final before = await widget.dashboardRepository.load(token);
       await complete();
       await _load();
       if (!mounted) return;
+      if (returnToGoalList) {
+        setState(() => _selectedGoalId = null);
+      }
 
       final after = await widget.dashboardRepository.load(token);
       if (!mounted) return;
