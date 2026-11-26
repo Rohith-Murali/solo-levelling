@@ -205,6 +205,40 @@ test("scales milestone and goal bonuses and records their ledger sources", () =>
   assert.equal(goal.events[0].metadata.xpTransaction.characterLevelAtAward, 10);
 });
 
+test("awards skill tokens when milestone or goal XP crosses an unlock level", () => {
+  const engine = new ProgressionEngine();
+  const state = {
+    ...engine.createInitialState("character-11", skill),
+    level: 2,
+    xp: 80,
+    totalXp: 180,
+  };
+
+  const milestone = engine.awardCompletionBonus(
+    state,
+    "milestone-token",
+    "MILESTONE_COMPLETED",
+  );
+  assert.equal(milestone.state.level, 3);
+  assert.equal(milestone.state.skillUnlockTokens, 1);
+  assert.equal(milestone.newlyEarnedUnlockTokens, 1);
+  assert.ok(milestone.events.some(
+    (event) => event.type === "SKILL_UNLOCK_TOKEN_EARNED",
+  ));
+
+  const goal = engine.awardCompletionBonus(
+    state,
+    "goal-token",
+    "GOAL_COMPLETED",
+  );
+  assert.equal(goal.state.level, 3);
+  assert.equal(goal.state.skillUnlockTokens, 1);
+  assert.equal(goal.newlyEarnedUnlockTokens, 1);
+  assert.ok(goal.events.some(
+    (event) => event.type === "SKILL_UNLOCK_TOKEN_EARNED",
+  ));
+});
+
 test("legacy version zero updates also match records without a stored version", () => {
   assert.deepEqual(characterVersionFilter(0), {
     $or: [

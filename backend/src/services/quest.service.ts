@@ -560,6 +560,7 @@ export function createQuestService() {
       const character = requireCharacter(user);
       const plainCharacter = toPlainCharacterRecord(character);
       const quests = plainCharacter.quests ?? [];
+      const skills = fullSkillRecords(character);
       await User.updateOne({ _id: userId }, { $unset: { "character.quests.$[].objectives": "" } });
       return {
         goals: plainCharacter.goals ?? [],
@@ -567,6 +568,9 @@ export function createQuestService() {
         quests: quests.map((quest) => ({
           ...quest,
           ...questRewards(character, quest),
+          primarySkillName: quest.primarySkillId
+            ? skills.find((skill) => skill.id === quest.primarySkillId)?.name ?? null
+            : null,
         })),
       };
     },

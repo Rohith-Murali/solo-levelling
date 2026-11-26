@@ -65,6 +65,9 @@ export class ProgressionEngine {
     };
     const previousTitle = state.title;
     const currentTitle = resolveTitle(character.level, this.config);
+    const previousTokens = unlockTokensAtLevel(state.level, this.config);
+    const currentTokens = unlockTokensAtLevel(character.level, this.config);
+    const newlyEarnedUnlockTokens = Math.max(0, currentTokens - previousTokens);
     const levelUps = Array.from({ length: character.level - state.level }, (_, index) => state.level + index + 1);
     const events: ProgressionEvent[] = [];
     const event = (type: ProgressionEvent["type"], values: Partial<ProgressionEvent> = {}) => events.push({
@@ -89,6 +92,14 @@ export class ProgressionEngine {
       event("TITLE_UNLOCKED", { relatedEntityId, previousValue: priorTitle, newValue: title });
       priorTitle = title;
     });
+    if (newlyEarnedUnlockTokens > 0) {
+      event("SKILL_UNLOCK_TOKEN_EARNED", {
+        relatedEntityId,
+        xpChange: newlyEarnedUnlockTokens,
+        previousValue: previousTokens,
+        newValue: currentTokens,
+      });
+    }
     event(eventType, { relatedEntityId });
 
     const nextState: ProgressionState = {
@@ -96,8 +107,9 @@ export class ProgressionEngine {
       ...character,
       title: currentTitle,
       titleHistory: newlyUnlockedTitles.length ? [...state.titleHistory, ...newlyUnlockedTitles] : state.titleHistory,
+      skillUnlockTokens: state.skillUnlockTokens + newlyEarnedUnlockTokens,
     };
-    return this.result(nextState, { questId: relatedEntityId }, xp, 0, levelUps, [previousTitle, currentTitle], newlyUnlockedTitles, 0, events, false, now);
+    return this.result(nextState, { questId: relatedEntityId }, xp, 0, levelUps, [previousTitle, currentTitle], newlyUnlockedTitles, newlyEarnedUnlockTokens, events, false, now);
   }
 
   private processCompletion(state: ProgressionState, quest: QuestCompletion, characterXpGained: number, now: Date, sourceType: ProgressionSourceType): ProgressionResult {
