@@ -5,7 +5,6 @@ import { characterXpReward, normalizeQuestDifficulty, resolveTitle } from "../co
 import { User } from "../models/user.model.js";
 import type { CharacterRecord, CharacterStats, GoalRecord, MilestoneRecord, QuestRecord, SkillRecord } from "../models/user.model.js";
 import { toPlainCharacterRecord } from "./character-record.js";
-import { characterVersionFilter } from "./character-version-filter.js";
 import { startingSkills } from "./character-catalog.js";
 
 function requireCharacter(user: { character?: CharacterRecord } | null): CharacterRecord {
@@ -68,45 +67,6 @@ function fullSkillRecords(character: CharacterRecord): SkillRecord[] {
     acquisitionSource: "CHARACTER_CREATION",
     status: "ACTIVE",
   }];
-}
-
-function normalizeLegacyMilestones(
-  milestones: MilestoneRecord[],
-): MilestoneRecord[] {
-  return milestones.map((milestone) => ({
-    ...milestone,
-    description: milestone.description?.trim() ? milestone.description : milestone.title,
-  }));
-}
-
-function normalizeLegacyQuests(quests: QuestRecord[]): QuestRecord[] {
-  return quests.map((quest) => ({
-    ...quest,
-    description: quest.description?.trim() || quest.title,
-    statContributions: quest.statContributions ?? [],
-    completed: quest.completed ?? false,
-  }));
-}
-
-function normalizeLegacyGoals(
-  character: CharacterRecord,
-  milestones: MilestoneRecord[],
-  quests: QuestRecord[],
-): GoalRecord[] {
-  return (character.goals ?? []).map((goal) => {
-    const skillId = goal.primarySkillId || goal.milestoneIds
-      .flatMap((milestoneId) =>
-        milestones.find((milestone) => milestone.id === milestoneId)?.questIds ?? [],
-      )
-      .map((questId) => quests.find((quest) => quest.id === questId)?.primarySkillId)
-      .find((candidate): candidate is string => Boolean(candidate)) || character.startingSkill.id;
-    return {
-      ...goal,
-      primarySkillId: skillId,
-      status: goal.status ?? (goal.completed ? "COMPLETED" : "ACTIVE"),
-      createdAt: goal.createdAt ?? character.createdAt,
-    };
-  });
 }
 
 const STAT_INCREASES: Record<string, number> = { EASY: 1, NORMAL: 2, MEDIUM: 2, HARD: 3, EPIC: 5 };
@@ -266,10 +226,10 @@ export function createQuestService() {
         milestones: [...(plain.milestones ?? []), ...newMilestones],
         quests: [...(plain.quests ?? []), ...newQuests],
         skills: skills as SkillRecord[],
-        version: (character.version ?? 0) + 1,
+        version: character.version + 1,
         updatedAt: now,
       };
-      const updated = await User.findOneAndUpdate({ _id: userId, ...characterVersionFilter(character.version) }, { $set: { character: nextCharacter } }, { new: true, runValidators: true });
+      const updated = await User.findOneAndUpdate({ _id: userId, "character.version": character.version }, { $set: { character: nextCharacter } }, { new: true, runValidators: true });
       if (!updated) throw new AppError(409, "CONCURRENT_UPDATE", "The character changed. Please retry.");
       return { goal, milestones: newMilestones, quests: newQuests };
     },
@@ -291,8 +251,8 @@ export function createQuestService() {
           }
         : candidate);
       const updated = await User.findOneAndUpdate(
-        { _id: userId, ...characterVersionFilter(character.version) },
-        { $set: { "character.goals": goals, "character.version": (character.version ?? 0) + 1, "character.updatedAt": new Date() } },
+        { _id: userId, "character.version": character.version },
+        { $set: { "character.goals": goals, "character.version": character.version + 1, "character.updatedAt": new Date() } },
         { new: true, runValidators: true },
       );
       if (!updated) throw new AppError(409, "CONCURRENT_UPDATE", "The character changed. Please retry.");
@@ -310,8 +270,8 @@ export function createQuestService() {
       const milestones = (plain.milestones ?? []).filter((candidate) => !milestoneIds.has(candidate.id));
       const quests = (plain.quests ?? []).filter((candidate) => candidate.goalId !== goalId);
       const updated = await User.findOneAndUpdate(
-        { _id: userId, ...characterVersionFilter(character.version) },
-        { $set: { "character.goals": goals, "character.milestones": milestones, "character.quests": quests, "character.version": (character.version ?? 0) + 1, "character.updatedAt": new Date() } },
+        { _id: userId, "character.version": character.version },
+        { $set: { "character.goals": goals, "character.milestones": milestones, "character.quests": quests, "character.version": character.version + 1, "character.updatedAt": new Date() } },
         { new: true, runValidators: true },
       );
       if (!updated) throw new AppError(409, "CONCURRENT_UPDATE", "The character changed. Please retry.");
@@ -344,8 +304,8 @@ export function createQuestService() {
         const { completedAt: _completedAt, ...activeGoal } = candidate;
         return { ...activeGoal, milestoneIds: [...candidate.milestoneIds, milestoneId], completed: false, status: "ACTIVE" as const };
       });
-      const nextCharacter: CharacterRecord = { ...plain, goals: nextGoals, milestones: [...(plain.milestones ?? []), milestone], quests: [...(plain.quests ?? []), ...quests], version: (character.version ?? 0) + 1, updatedAt: new Date() };
-      const updated = await User.findOneAndUpdate({ _id: userId, ...characterVersionFilter(character.version) }, { $set: { character: nextCharacter } }, { new: true, runValidators: true });
+      const nextCharacter: CharacterRecord = { ...plain, goals: nextGoals, milestones: [...(plain.milestones ?? []), milestone], quests: [...(plain.quests ?? []), ...quests], version: character.version + 1, updatedAt: new Date() };
+      const updated = await User.findOneAndUpdate({ _id: userId, "character.version": character.version }, { $set: { character: nextCharacter } }, { new: true, runValidators: true });
       if (!updated) throw new AppError(409, "CONCURRENT_UPDATE", "The character changed. Please retry.");
       return { milestone, quests };
     },
@@ -365,8 +325,8 @@ export function createQuestService() {
           }
         : candidate);
       const updated = await User.findOneAndUpdate(
-        { _id: userId, ...characterVersionFilter(character.version) },
-        { $set: { "character.milestones": milestones, "character.version": (character.version ?? 0) + 1, "character.updatedAt": new Date() } },
+        { _id: userId, "character.version": character.version },
+        { $set: { "character.milestones": milestones, "character.version": character.version + 1, "character.updatedAt": new Date() } },
         { new: true, runValidators: true },
       );
       if (!updated) throw new AppError(409, "CONCURRENT_UPDATE", "The character changed. Please retry.");
@@ -389,8 +349,8 @@ export function createQuestService() {
         ? { ...candidate, milestoneId: undefined }
         : candidate);
       const updated = await User.findOneAndUpdate(
-        { _id: userId, ...characterVersionFilter(character.version) },
-        { $set: { "character.goals": goals, "character.milestones": milestones, "character.quests": quests, "character.version": (character.version ?? 0) + 1, "character.updatedAt": new Date() } },
+        { _id: userId, "character.version": character.version },
+        { $set: { "character.goals": goals, "character.milestones": milestones, "character.quests": quests, "character.version": character.version + 1, "character.updatedAt": new Date() } },
         { new: true, runValidators: true },
       );
       if (!updated) throw new AppError(409, "CONCURRENT_UPDATE", "The character changed. Please retry.");
@@ -406,11 +366,9 @@ export function createQuestService() {
         throw new AppError(404, "MILESTONE_NOT_FOUND", "Milestone not found.");
       }
       const plain = toPlainCharacterRecord(character);
-      const quests = normalizeLegacyQuests(plain.quests ?? []);
-      const milestones = normalizeLegacyMilestones(plain.milestones ?? []);
-      const normalizedCharacter = { ...plain, quests, milestones };
-      const goals = normalizeLegacyGoals(normalizedCharacter, milestones, quests);
-      const goal = goals.find((candidate) => candidate.id === goalId);
+      const quests = plain.quests;
+      const milestones = plain.milestones;
+      const goal = plain.goals.find((candidate) => candidate.id === goalId);
       if (!goal) throw new AppError(404, "GOAL_NOT_FOUND", "Goal not found.");
       const quest: QuestRecord = {
         id: randomUUID(),
@@ -428,14 +386,14 @@ export function createQuestService() {
       const nextMilestones = milestones.map((candidate) => input.milestoneId === candidate.id
         ? { ...candidate, questIds: [...candidate.questIds, quest.id], completed: false, completedAt: undefined }
         : candidate);
-      const nextGoals = goals.map((candidate) => {
+      const nextGoals = plain.goals.map((candidate) => {
         if (candidate.id !== goalId) return candidate;
         const { completedAt: _completedAt, ...activeGoal } = candidate;
         return { ...activeGoal, completed: false, status: "ACTIVE" as const };
       });
       const updated = await User.findOneAndUpdate(
-        { _id: userId, ...characterVersionFilter(character.version) },
-        { $set: { "character.goals": nextGoals, "character.quests": [...quests, quest], "character.milestones": nextMilestones, "character.version": (character.version ?? 0) + 1, "character.updatedAt": new Date() } },
+        { _id: userId, "character.version": character.version },
+        { $set: { "character.goals": nextGoals, "character.quests": [...quests, quest], "character.milestones": nextMilestones, "character.version": character.version + 1, "character.updatedAt": new Date() } },
         { new: true, runValidators: true },
       );
       if (!updated) throw new AppError(409, "CONCURRENT_UPDATE", "The character changed. Please retry.");
@@ -481,8 +439,8 @@ export function createQuestService() {
         return { ...candidate, questIds };
       });
       const updated = await User.findOneAndUpdate(
-        { _id: userId, ...characterVersionFilter(character.version) },
-        { $set: { "character.quests": quests, "character.milestones": milestones, "character.version": (character.version ?? 0) + 1, "character.updatedAt": new Date() } },
+        { _id: userId, "character.version": character.version },
+        { $set: { "character.quests": quests, "character.milestones": milestones, "character.version": character.version + 1, "character.updatedAt": new Date() } },
         { new: true, runValidators: true },
       );
       if (!updated) throw new AppError(409, "CONCURRENT_UPDATE", "The character changed. Please retry.");
@@ -503,8 +461,8 @@ export function createQuestService() {
         questIds: candidate.questIds.filter((id) => id !== questId),
       }));
       const updated = await User.findOneAndUpdate(
-        { _id: userId, ...characterVersionFilter(character.version) },
-        { $set: { "character.quests": quests, "character.milestones": milestones, "character.version": (character.version ?? 0) + 1, "character.updatedAt": new Date() } },
+        { _id: userId, "character.version": character.version },
+        { $set: { "character.quests": quests, "character.milestones": milestones, "character.version": character.version + 1, "character.updatedAt": new Date() } },
         { new: true, runValidators: true },
       );
       if (!updated) throw new AppError(409, "CONCURRENT_UPDATE", "The character changed. Please retry.");
@@ -537,8 +495,8 @@ export function createQuestService() {
       const skills = skillRecords.some((candidate) => candidate.id === skillId)
         ? skillRecords
         : [...skillRecords, skill];
-      const nextCharacter: CharacterRecord = { ...plain, quests: [...(plain.quests ?? []), quest], skills: skills as SkillRecord[], version: (character.version ?? 0) + 1, updatedAt: new Date() };
-      const updated = await User.findOneAndUpdate({ _id: userId, ...characterVersionFilter(character.version) }, { $set: { character: nextCharacter } }, { new: true, runValidators: true });
+      const nextCharacter: CharacterRecord = { ...plain, quests: [...(plain.quests ?? []), quest], skills: skills as SkillRecord[], version: character.version + 1, updatedAt: new Date() };
+      const updated = await User.findOneAndUpdate({ _id: userId, "character.version": character.version }, { $set: { character: nextCharacter } }, { new: true, runValidators: true });
       if (!updated) throw new AppError(409, "CONCURRENT_UPDATE", "The character changed. Please retry.");
       return quest;
     },
@@ -550,7 +508,7 @@ export function createQuestService() {
       if (!goal) throw new AppError(404, "GOAL_NOT_FOUND", "Goal not found.");
       const plain = toPlainCharacterRecord(character);
       const goals = plain.goals.map((candidate) => candidate.id === goalId ? { ...candidate, status: "ARCHIVED" as const, archivedAt: new Date() } : candidate);
-      const updated = await User.findOneAndUpdate({ _id: userId, ...characterVersionFilter(character.version) }, { $set: { "character.goals": goals, "character.version": (character.version ?? 0) + 1, "character.updatedAt": new Date() } }, { new: true, runValidators: true });
+      const updated = await User.findOneAndUpdate({ _id: userId, "character.version": character.version }, { $set: { "character.goals": goals, "character.version": character.version + 1, "character.updatedAt": new Date() } }, { new: true, runValidators: true });
       if (!updated) throw new AppError(409, "CONCURRENT_UPDATE", "The character changed. Please retry.");
       return goals.find((candidate) => candidate.id === goalId);
     },
@@ -579,13 +537,9 @@ export function createQuestService() {
       const user = await User.findById(userId).select("character");
       const character = requireCharacter(user);
       const plain = toPlainCharacterRecord(character);
-      const goals = normalizeLegacyGoals(
-        plain,
-        normalizeLegacyMilestones(plain.milestones ?? []),
-        normalizeLegacyQuests(plain.quests ?? []),
-      );
-      const milestones = normalizeLegacyMilestones(plain.milestones ?? []);
-      const quests = normalizeLegacyQuests(plain.quests ?? []);
+      const goals = plain.goals;
+      const milestones = plain.milestones;
+      const quests = plain.quests;
       const goal = goals.find((candidate) => candidate.id === goalId);
       const milestone = milestones.find((candidate) => candidate.id === milestoneId);
       if (!goal) throw new AppError(404, "GOAL_NOT_FOUND", "Goal not found.");
@@ -609,10 +563,10 @@ export function createQuestService() {
         milestones: completion.milestones,
         goals,
         progressionEvents: [...(plain.progressionEvents ?? []), ...completion.events],
-        version: (character.version ?? 0) + 1,
+        version: character.version + 1,
         updatedAt: completedAt,
       };
-      const updated = await User.findOneAndUpdate({ _id: userId, ...characterVersionFilter(character.version) }, { $set: { character: nextCharacter } }, { new: true, runValidators: true });
+      const updated = await User.findOneAndUpdate({ _id: userId, "character.version": character.version }, { $set: { character: nextCharacter } }, { new: true, runValidators: true });
       if (!updated) throw new AppError(409, "CONCURRENT_UPDATE", "The character changed. Please retry.");
       return completion.milestones.find((candidate) => candidate.id === milestoneId);
     },
@@ -641,10 +595,10 @@ export function createQuestService() {
         ...progressionCharacterFields(plain, bonus.state),
         goals: nextGoals,
         progressionEvents: [...(plain.progressionEvents ?? []), ...bonus.events],
-        version: (character.version ?? 0) + 1,
+        version: character.version + 1,
         updatedAt: completedAt,
       };
-      const updated = await User.findOneAndUpdate({ _id: userId, ...characterVersionFilter(character.version) }, { $set: { character: nextCharacter } }, { new: true, runValidators: true });
+      const updated = await User.findOneAndUpdate({ _id: userId, "character.version": character.version }, { $set: { character: nextCharacter } }, { new: true, runValidators: true });
       if (!updated) throw new AppError(409, "CONCURRENT_UPDATE", "The character changed. Please retry.");
       return nextGoals.find((candidate) => candidate.id === goalId);
     },
@@ -663,8 +617,8 @@ export function createQuestService() {
       const completedAt = new Date();
       const plainCharacter = toPlainCharacterRecord(character);
       const quests = (plainCharacter.quests ?? []).map((candidate) => candidate.id === questId ? { ...candidate, completed: true, completedAt } : candidate);
-      const milestones = normalizeLegacyMilestones(plainCharacter.milestones ?? []);
-      const goals = normalizeLegacyGoals(plainCharacter, milestones, quests);
+      const milestones = plainCharacter.milestones;
+      const goals = plainCharacter.goals;
       const stats = applyQuestStats(plainCharacter.stats, quest);
       const nextCharacter: CharacterRecord = {
         ...plainCharacter,
@@ -674,10 +628,10 @@ export function createQuestService() {
         milestones,
         goals,
         progressionEvents: [...(plainCharacter.progressionEvents ?? []), ...result.events],
-        version: (character.version ?? 0) + 1,
+        version: character.version + 1,
         updatedAt: completedAt,
       };
-      const updated = await User.findOneAndUpdate({ _id: userId, ...characterVersionFilter(character.version), "character.quests": { $elemMatch: { id: questId, completed: false } } }, { $set: { character: nextCharacter } }, { new: true, runValidators: true });
+      const updated = await User.findOneAndUpdate({ _id: userId, "character.version": character.version, "character.quests": { $elemMatch: { id: questId, completed: false } } }, { $set: { character: nextCharacter } }, { new: true, runValidators: true });
       if (!updated) {
         const latestUser = await User.findById(userId).select("character");
         const latestQuest = latestUser?.character?.quests?.find(
