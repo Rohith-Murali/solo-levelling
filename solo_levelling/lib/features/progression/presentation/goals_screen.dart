@@ -906,7 +906,7 @@ class _GoalCard extends StatelessWidget {
       border: Border.all(color: AppColors.primaryGlow),
       boxShadow: [
         BoxShadow(
-          color: AppColors.primaryGlow.withOpacity(.18),
+          color: AppColors.primaryGlow.withValues(alpha: .18),
           blurRadius: 18,
         ),
       ],
@@ -920,7 +920,7 @@ class _GoalCard extends StatelessWidget {
             width: 34,
             height: 34,
             decoration: BoxDecoration(
-              color: AppColors.accent.withOpacity(.12),
+              color: AppColors.accent.withValues(alpha: .12),
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.flag, color: AppColors.accent, size: 18),

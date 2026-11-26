@@ -109,7 +109,7 @@ class _CharacterStatusScreenState extends State<CharacterStatusScreen> {
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: AppColors.surface.withOpacity(.88),
+                color: AppColors.surface.withValues(alpha: .88),
                 gradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -119,7 +119,7 @@ class _CharacterStatusScreenState extends State<CharacterStatusScreen> {
                 border: Border.all(color: AppColors.primaryGlow),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.primaryGlow.withOpacity(.16),
+                    color: AppColors.primaryGlow.withValues(alpha: .16),
                     blurRadius: 18,
                   ),
                 ],
@@ -239,7 +239,7 @@ class _CharacterStats extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 12, 8, 14),
       decoration: BoxDecoration(
-        color: AppColors.surface.withOpacity(.7),
+        color: AppColors.surface.withValues(alpha: .7),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.border),
       ),
@@ -333,7 +333,7 @@ class _StatsRadarPainter extends CustomPainter {
         );
 
     final gridPaint = Paint()
-      ..color = AppColors.textMuted.withOpacity(.48)
+      ..color = AppColors.textMuted.withValues(alpha: .48)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
     for (var level = 1; level <= 5; level++) {
@@ -369,7 +369,7 @@ class _StatsRadarPainter extends CustomPainter {
     canvas.drawPath(
       dataPath,
       Paint()
-        ..color = AppColors.primary.withOpacity(.38)
+        ..color = AppColors.primary.withValues(alpha: .38)
         ..style = PaintingStyle.fill,
     );
     canvas.drawPath(
@@ -442,7 +442,7 @@ class _StatusStat extends StatelessWidget {
     width: 150,
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
-      color: AppColors.surface.withOpacity(.88),
+      color: AppColors.surface.withValues(alpha: .88),
       gradient: const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
@@ -483,7 +483,7 @@ class _StatusSkill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.surface.withOpacity(.88),
+        color: AppColors.surface.withValues(alpha: .88),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,

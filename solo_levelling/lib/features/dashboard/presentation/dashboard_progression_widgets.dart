@@ -322,17 +322,17 @@ class _DashboardSection extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: AppColors.surface.withOpacity(.88),
+              color: AppColors.surface.withValues(alpha: .88),
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [AppColors.surfaceElevated, AppColors.surface],
               ),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.primaryGlow.withOpacity(.52)),
+              border: Border.all(color: AppColors.primaryGlow.withValues(alpha: .52)),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.primaryGlow.withOpacity(.11),
+                  color: AppColors.primaryGlow.withValues(alpha: .11),
                   blurRadius: 18,
                   spreadRadius: 1,
                 ),

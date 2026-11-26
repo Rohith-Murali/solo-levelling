@@ -83,23 +83,23 @@ class _HolographicNotificationState extends State<_HolographicNotification>
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  const Color(0xFF123A61).withOpacity(.82),
-                  AppColors.surface.withOpacity(.98),
-                  const Color(0xFF041329).withOpacity(.98),
+                  const Color(0xFF123A61).withValues(alpha: .82),
+                  AppColors.surface.withValues(alpha: .98),
+                  const Color(0xFF041329).withValues(alpha: .98),
                 ],
               ),
               border: Border.all(
-                color: AppColors.primaryGlow.withOpacity(pulse),
+                color: AppColors.primaryGlow.withValues(alpha: pulse),
                 width: 1.4,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.primaryGlow.withOpacity(.32 * pulse),
+                  color: AppColors.primaryGlow.withValues(alpha: .32 * pulse),
                   blurRadius: 28,
                   spreadRadius: 4,
                 ),
                 BoxShadow(
-                  color: AppColors.accent.withOpacity(.16),
+                  color: AppColors.accent.withValues(alpha: .16),
                   blurRadius: 8,
                 ),
               ],
@@ -131,7 +131,7 @@ class _HolographicNotificationState extends State<_HolographicNotification>
                     Text(
                       'SYS',
                       style: TextStyle(
-                        color: AppColors.primaryGlow.withOpacity(.8),
+                        color: AppColors.primaryGlow.withValues(alpha: .8),
                         fontSize: 10,
                         letterSpacing: 1.5,
                       ),
@@ -141,7 +141,7 @@ class _HolographicNotificationState extends State<_HolographicNotification>
                 const SizedBox(height: 20),
                 Container(
                   height: 1,
-                  color: AppColors.primaryGlow.withOpacity(.5),
+                  color: AppColors.primaryGlow.withValues(alpha: .5),
                 ),
                 const SizedBox(height: 22),
                 Text(
@@ -192,11 +192,11 @@ class _PulseIcon extends StatelessWidget {
       height: 48,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: AppColors.primaryGlow.withOpacity(.12),
-        border: Border.all(color: AppColors.accent.withOpacity(glow)),
+        color: AppColors.primaryGlow.withValues(alpha: .12),
+        border: Border.all(color: AppColors.accent.withValues(alpha: glow)),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primaryGlow.withOpacity(.45 * glow),
+            color: AppColors.primaryGlow.withValues(alpha: .45 * glow),
             blurRadius: 16,
             spreadRadius: 2,
           ),
@@ -215,7 +215,7 @@ class _HolographicFramePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final line = Paint()
-      ..color = AppColors.primaryGlow.withOpacity(.7)
+      ..color = AppColors.primaryGlow.withValues(alpha: .7)
       ..strokeWidth = 2;
     final scanY = size.height * progress;
     canvas.drawLine(Offset(0, scanY), Offset(size.width, scanY), line);

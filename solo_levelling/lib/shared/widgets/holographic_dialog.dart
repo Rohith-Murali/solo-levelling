@@ -26,17 +26,17 @@ class HolographicDialog extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: AppColors.accent.withOpacity(.75),
+          color: AppColors.accent.withValues(alpha: .75),
           width: 1.4,
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.accent.withOpacity(.28),
+            color: AppColors.accent.withValues(alpha: .28),
             blurRadius: 28,
             spreadRadius: 2,
           ),
           BoxShadow(
-            color: AppColors.primaryGlow.withOpacity(.24),
+            color: AppColors.primaryGlow.withValues(alpha: .24),
             blurRadius: 50,
           ),
         ],

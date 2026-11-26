@@ -268,7 +268,7 @@ class _SkillEntry extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.surface.withOpacity(.88),
+        color: AppColors.surface.withValues(alpha: .88),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -278,7 +278,7 @@ class _SkillEntry extends StatelessWidget {
         border: Border.all(color: AppColors.primaryGlow),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primaryGlow.withOpacity(.14),
+            color: AppColors.primaryGlow.withValues(alpha: .14),
             blurRadius: 14,
           ),
         ],
@@ -333,7 +333,7 @@ class _AcquiredSkillEntry extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.surface.withOpacity(.88),
+        color: AppColors.surface.withValues(alpha: .88),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -343,7 +343,7 @@ class _AcquiredSkillEntry extends StatelessWidget {
         border: Border.all(color: AppColors.primaryGlow),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primaryGlow.withOpacity(.14),
+            color: AppColors.primaryGlow.withValues(alpha: .14),
             blurRadius: 14,
           ),
         ],

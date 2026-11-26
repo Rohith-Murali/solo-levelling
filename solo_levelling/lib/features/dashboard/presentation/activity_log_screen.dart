@@ -164,12 +164,12 @@ class _LogEntry extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.surface.withOpacity(.86),
+        color: AppColors.surface.withValues(alpha: .86),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.primaryGlow.withOpacity(.6)),
+        border: Border.all(color: AppColors.primaryGlow.withValues(alpha: .6)),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primaryGlow.withOpacity(.12),
+            color: AppColors.primaryGlow.withValues(alpha: .12),
             blurRadius: 14,
           ),
         ],

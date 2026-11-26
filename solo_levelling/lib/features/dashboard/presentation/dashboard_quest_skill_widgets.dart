@@ -166,7 +166,7 @@ class _QuestCard extends StatelessWidget {
         border: Border.all(color: AppColors.primaryGlow),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primaryGlow.withOpacity(.16),
+            color: AppColors.primaryGlow.withValues(alpha: .16),
             blurRadius: 14,
           ),
         ],
